@@ -9,7 +9,7 @@ const Layout = ({ children }) => {
       <aside className="sidebar glass">
         <div className="logo">
           <Landmark size={32} color="var(--accent)" />
-          <span>Antigravity Bank</span>
+          <span>Bank App</span>
         </div>
         <nav className="nav-menu">
           <NavLink to="/" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>

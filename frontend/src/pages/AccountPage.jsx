@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { CreditCard, Plus, Landmark, UserPlus } from 'lucide-react';
+import { CreditCard, Plus, Landmark, UserPlus, Image, FileCheck } from 'lucide-react';
 import '../styles/Pages.css';
 
 const AccountPage = () => {
@@ -30,7 +30,6 @@ const AccountPage = () => {
       setCustomers(respAcc.data);
       setBranches(respBranch.data);
       
-      // Fetch some sample accounts (e.g. for the first customer in list)
       if(respAcc.data.length > 0) {
         const respAllAcc = await axios.get(`http://localhost:5000/api/accounts/customer/${respAcc.data[0].customer_id}`);
         setAccounts(respAllAcc.data);
@@ -44,12 +43,40 @@ const AccountPage = () => {
     fetchData();
   }, []);
 
+  const validateForm = () => {
+    if (isNewCustomer) {
+      if (!formData.name || !formData.email || !formData.dob) {
+        alert("Please fill in all mandatory customer details.");
+        return false;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        alert("Invalid email format.");
+        return false;
+      }
+      if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
+        alert("Phone number must be 10 digits.");
+        return false;
+      }
+    } else if (!formData.customer_id) {
+      alert("Please select an existing customer.");
+      return false;
+    }
+
+    if (!formData.branch_id) {
+      alert("Please select a branch.");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     try {
       let finalCustomerId = formData.customer_id;
 
-      // If it's a new customer, register them first
       if (isNewCustomer) {
         const custResp = await axios.post('http://localhost:5000/api/customers', {
           name: formData.name,
@@ -61,7 +88,6 @@ const AccountPage = () => {
         finalCustomerId = custResp.data.id;
       }
 
-      // Now create the account
       await axios.post('http://localhost:5000/api/accounts', {
         customer_id: finalCustomerId,
         branch_id: formData.branch_id,
@@ -69,12 +95,12 @@ const AccountPage = () => {
         initial_balance: formData.initial_balance
       });
 
-      alert('Account opened successfully!');
+      alert('Successfully processed! Your new Account is now active.');
       setShowForm(false);
       setIsNewCustomer(false);
       fetchData();
     } catch (err) {
-      alert('Error: ' + (err.response?.data?.error || err.message));
+      alert('Operation Failed: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -103,16 +129,31 @@ const AccountPage = () => {
           <div className="form-grid">
             {isNewCustomer ? (
               <>
-                <input type="text" placeholder="Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input type="email" placeholder="Email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                <input type="text" placeholder="Phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                <input type="date" placeholder="DOB" required value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
-                <textarea className="full-width" placeholder="Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                <input type="text" placeholder="Full Name *" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input type="email" placeholder="Email Address *" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input type="text" placeholder="Phone (10 digits)" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                <input type="date" placeholder="DOB *" required value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
+                <textarea className="full-width" placeholder="Permanent Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                
+                {/* KYC Simulation Fields */}
+                <div className="kyc-section full-width">
+                  <p>KYC Documents (Optional)</p>
+                  <div className="kyc-inputs">
+                    <div className="file-input">
+                      <label><Image size={16} /> Profile Photo</label>
+                      <input type="file" accept="image/*" />
+                    </div>
+                    <div className="file-input">
+                      <label><FileCheck size={16} /> ID Proof (Aadhar/PAN)</label>
+                      <input type="file" />
+                    </div>
+                  </div>
+                </div>
               </>
             ) : (
               <select required value={formData.customer_id} onChange={e => setFormData({...formData, customer_id: e.target.value})}>
                 <option value="">Select Existing Customer</option>
-                {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} (ID: {c.customer_id})</option>)}
+                {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} (CUST-{8000 + c.customer_id})</option>)}
               </select>
             )}
             
@@ -124,7 +165,7 @@ const AccountPage = () => {
               <option value="Savings">Savings</option>
               <option value="Current">Current</option>
             </select>
-            <input type="number" placeholder="Initial Deposit" value={formData.initial_balance} onChange={e => setFormData({...formData, initial_balance: e.target.value})} />
+            <input type="number" placeholder="Initial Deposit (₹)" value={formData.initial_balance} onChange={e => setFormData({...formData, initial_balance: e.target.value})} />
           </div>
           <button type="submit" className="btn-primary">Create Account</button>
         </form>
@@ -135,11 +176,11 @@ const AccountPage = () => {
           <div key={acc.account_id} className="glass list-card account-card">
             <div className="card-header">
               <Landmark size={24} color="var(--accent)" />
-              <span className="account-no">Acc No: {5000 + acc.account_id}</span>
+              <span className="account-no">Acc No: 1000{5000 + acc.account_id}</span>
             </div>
             <div className="card-body">
               <span className="type-tag">{acc.account_type}</span>
-              <h3 className="balance">${parseFloat(acc.balance).toLocaleString()}</h3>
+              <h3 className="balance">₹{parseFloat(acc.balance).toLocaleString('en-IN')}</h3>
               <p className="status">Status: {acc.status}</p>
             </div>
           </div>

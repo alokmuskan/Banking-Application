@@ -8,6 +8,33 @@ const db = require('../config/db');
 router.post('/customers', async (req, res) => {
     try {
         const { name, email, phone, address, dob } = req.body;
+
+        // --- VALIDATION ---
+        
+        // 1. Email format check
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        // 2. Phone number check (10 digits)
+        const phoneRegex = /^\d{10}$/;
+        if (phone && !phoneRegex.test(phone)) {
+            return res.status(400).json({ error: 'Phone number must be exactly 10 digits' });
+        }
+
+        // 3. Date of Birth check (Not in future)
+        const birthDate = new Date(dob);
+        if (birthDate > new Date()) {
+            return res.status(400).json({ error: 'Date of birth cannot be in the future' });
+        }
+
+        // 4. Duplicate Email check
+        const [existing] = await db.execute('SELECT email FROM Customers WHERE email = ?', [email]);
+        if (existing.length > 0) {
+            return res.status(400).json({ error: 'An account with this email already exists' });
+        }
+
         const [result] = await db.execute(
             'INSERT INTO Customers (name, email, phone, address, dob) VALUES (?, ?, ?, ?, ?)',
             [name, email, phone, address, dob]

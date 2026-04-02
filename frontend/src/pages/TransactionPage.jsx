@@ -81,7 +81,7 @@ const TransactionPage = () => {
                 <label>Source Account</label>
                 <select required value={formData.from_account_id} onChange={e => setFormData({...formData, from_account_id: e.target.value})}>
                   <option value="">Select Your Account</option>
-                  {accounts.map(a => <option key={a.account_id} value={a.account_id}>Acc: {5000+a.account_id} (${parseFloat(a.balance).toFixed(2)})</option>)}
+                  {accounts.map(a => <option key={a.account_id} value={a.account_id}>Acc: 1000{5000+a.account_id} [₹{parseFloat(a.balance).toLocaleString('en-IN')}]</option>)}
                 </select>
               </div>
             )}
@@ -95,7 +95,7 @@ const TransactionPage = () => {
 
             <div className="input-row">
               <div className="input-group">
-                <label>Amount ($)</label>
+                <label>Amount (₹)</label>
                 <input type="number" placeholder="0.00" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} required min="1" />
               </div>
             </div>
@@ -124,7 +124,7 @@ const TransactionPage = () => {
                 </div>
                 <div className="activity-details">
                    <span className="activity-type">{t.type}</span>
-                   <span className="activity-amount">${parseFloat(t.amount).toFixed(2)}</span>
+                   <span className="activity-amount">₹{parseFloat(t.amount).toLocaleString('en-IN')}</span>
                    <span className="activity-date">{new Date(t.timestamp).toLocaleDateString()}</span>
                 </div>
               </div>
