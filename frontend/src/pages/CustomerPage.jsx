@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, Plus, Search } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import '../styles/Pages.css';
 
 const CustomerPage = () => {
+  const { addToast } = useToast();
   const [customers, setCustomers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,16 +29,19 @@ const CustomerPage = () => {
   const validateForm = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      alert("Please provide a valid email address.");
+      addToast("Please provide a valid email address.", "error");
       return false;
     }
     if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
-      alert("Phone number must be exactly 10 digits.");
+      addToast("Phone number must be exactly 10 digits.", "error");
       return false;
     }
-    const dob = new Date(formData.dob);
-    if (dob > new Date()) {
-      alert("Date of Birth cannot be in the future.");
+    const dobDate = new Date(formData.dob);
+    const birthYear = dobDate.getFullYear();
+    const currentYear = new Date().getFullYear();
+    
+    if (dobDate > new Date() || birthYear < 1920 || birthYear > currentYear - 1) {
+      addToast("Please enter a valid birth year (1920 - Present).", "error");
       return false;
     }
     return true;
@@ -48,12 +53,12 @@ const CustomerPage = () => {
 
     try {
       await axios.post('http://localhost:5000/api/customers', formData);
-      alert('Registration Successful!');
+      addToast('Registration Successful!', 'success');
       setShowForm(false);
       setFormData({ name: '', email: '', phone: '', address: '', dob: '' });
       fetchData();
     } catch (err) {
-      alert('Error: ' + (err.response?.data?.error || err.message));
+      addToast('Error: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 

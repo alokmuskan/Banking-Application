@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ArrowDownCircle, ArrowUpCircle, Repeat, History, Search, TrendingUp } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import '../styles/Pages.css';
 
 const TransactionPage = () => {
+  const { addToast } = useToast();
   const [accounts, setAccounts] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -44,11 +46,11 @@ const TransactionPage = () => {
     setLoading(true);
     try {
       await axios.post('http://localhost:5000/api/transactions', formData);
-      alert('Transaction Successful!');
+      addToast('Transaction Successful!', 'success');
       setFormData({ ...formData, amount: '', description: '' });
       fetchData();
     } catch (err) {
-      alert('Transaction Failed: ' + (err.response?.data?.error || err.message));
+      addToast('Transaction Failed: ' + (err.response?.data?.error || err.message), 'error');
     } finally {
       setLoading(false);
     }

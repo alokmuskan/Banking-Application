@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { CreditCard, Plus, Landmark, UserPlus, Image, FileCheck } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import '../styles/Pages.css';
 
 const AccountPage = () => {
+  const { addToast } = useToast();
   const [accounts, setAccounts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -46,25 +48,31 @@ const AccountPage = () => {
   const validateForm = () => {
     if (isNewCustomer) {
       if (!formData.name || !formData.email || !formData.dob) {
-        alert("Please fill in all mandatory customer details.");
+        addToast("Please fill in all mandatory customer details.", "error");
         return false;
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
-        alert("Invalid email format.");
+        addToast("Invalid email format.", "error");
         return false;
       }
       if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
-        alert("Phone number must be 10 digits.");
+        addToast("Phone number must be 10 digits.", "error");
+        return false;
+      }
+      
+      const birthYear = new Date(formData.dob).getFullYear();
+      if (birthYear < 1920 || birthYear > new Date().getFullYear() - 1) {
+        addToast("Please enter a valid birth year (1920 - Present).", "error");
         return false;
       }
     } else if (!formData.customer_id) {
-      alert("Please select an existing customer.");
+      addToast("Please select an existing customer.", "error");
       return false;
     }
 
     if (!formData.branch_id) {
-      alert("Please select a branch.");
+      addToast("Please select a branch.", "error");
       return false;
     }
     return true;
@@ -95,12 +103,16 @@ const AccountPage = () => {
         initial_balance: formData.initial_balance
       });
 
-      alert('Successfully processed! Your new Account is now active.');
+      addToast('Successfully processed! Your new Account is now active.', 'success');
       setShowForm(false);
       setIsNewCustomer(false);
+      setFormData({
+        customer_id: '', branch_id: '', account_type: 'Savings', initial_balance: '0',
+        name: '', email: '', phone: '', address: '', dob: ''
+      });
       fetchData();
     } catch (err) {
-      alert('Operation Failed: ' + (err.response?.data?.error || err.message));
+      addToast('Operation Failed: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 

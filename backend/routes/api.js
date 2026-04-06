@@ -23,10 +23,13 @@ router.post('/customers', async (req, res) => {
             return res.status(400).json({ error: 'Phone number must be exactly 10 digits' });
         }
 
-        // 3. Date of Birth check (Not in future)
+        // 3. Date of Birth check (Realistic year range and not in future)
         const birthDate = new Date(dob);
-        if (birthDate > new Date()) {
-            return res.status(400).json({ error: 'Date of birth cannot be in the future' });
+        const birthYear = birthDate.getFullYear();
+        const currentYear = new Date().getFullYear();
+
+        if (birthDate > new Date() || birthYear < 1900 || birthYear > currentYear) {
+            return res.status(400).json({ error: 'Please provide a valid Date of Birth (Year must be between 1900 and ' + currentYear + ')' });
         }
 
         // 4. Duplicate Email check
