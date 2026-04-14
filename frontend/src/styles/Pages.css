@@ -1,0 +1,209 @@
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.form-card {
+  padding: 2rem;
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+input, select, textarea {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: white;
+  padding: 0.875rem;
+  border-radius: 0.5rem;
+  width: 100%;
+}
+
+.list-card {
+  padding: 1.5rem;
+  border-radius: 1rem;
+  transition: transform 0.2s;
+}
+
+.list-card:hover {
+  transform: translateY(-4px);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.card-body p {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.badge {
+  background: var(--bg-tertiary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+}
+
+/* Account Card Specifics */
+.account-card .balance {
+  font-size: 1.75rem;
+  margin: 0.5rem 0;
+}
+
+.type-tag {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Financial Hub Specifics */
+.transaction-hub-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 2rem;
+}
+
+.type-selector {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--bg-tertiary);
+  padding: 0.4rem;
+  border-radius: 0.75rem;
+}
+
+.type-selector button {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.type-selector button.active {
+  background: var(--bg-secondary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Table Styles */
+.table-container {
+  overflow: hidden;
+  border-radius: 1rem;
+}
+
+.statement-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.statement-table th {
+  background: var(--bg-tertiary);
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.statement-table td {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 0.75rem;
+}
+
+.type-dot.deposit { background: var(--success); }
+.type-dot.withdrawal { background: var(--danger); }
+.type-dot.transfer { background: var(--accent); }
+
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+
+.search-bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.4rem;
+  border-radius: 0.75rem;
+  width: 300px;
+}
+
+.search-bar input {
+  background: transparent;
+  border: none;
+}
+
+.search-bar button {
+  background: var(--accent);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}

@@ -1,0 +1,59 @@
+-- Database: BankingMS
+CREATE DATABASE IF NOT EXISTS BankingMS;
+USE BankingMS;
+
+-- 1. Branches Table
+CREATE TABLE Branches (
+    branch_id INT AUTO_INCREMENT PRIMARY KEY,
+    branch_name VARCHAR(100) NOT NULL,
+    city VARCHAR(50) NOT NULL,
+    address TEXT
+);
+
+-- 2. Customers Table
+CREATE TABLE Customers (
+    customer_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    address TEXT,
+    dob DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Accounts Table
+CREATE TABLE Accounts (
+    account_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT,
+    branch_id INT,
+    account_type ENUM('Savings', 'Current') NOT NULL,
+    balance DECIMAL(15, 2) DEFAULT 0.00,
+    open_date DATE,
+    status ENUM('Active', 'Closed', 'Dormant') DEFAULT 'Active',
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE,
+    FOREIGN KEY (branch_id) REFERENCES Branches(branch_id) ON DELETE SET NULL
+);
+
+-- 4. Transactions Table
+CREATE TABLE Transactions (
+    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
+    from_account_id INT,
+    to_account_id INT,
+    amount DECIMAL(15, 2) NOT NULL,
+    type ENUM('Deposit', 'Withdrawal', 'Transfer') NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    description TEXT,
+    FOREIGN KEY (from_account_id) REFERENCES Accounts(account_id),
+    FOREIGN KEY (to_account_id) REFERENCES Accounts(account_id)
+);
+
+-- 5. Employees Table
+CREATE TABLE Employees (
+    employee_id INT AUTO_INCREMENT PRIMARY KEY,
+    branch_id INT,
+    emp_name VARCHAR(100) NOT NULL,
+    position VARCHAR(50),
+    salary DECIMAL(10, 2),
+    hire_date DATE,
+    FOREIGN KEY (branch_id) REFERENCES Branches(branch_id)
+);
