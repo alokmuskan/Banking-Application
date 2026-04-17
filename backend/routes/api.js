@@ -122,7 +122,7 @@ router.get('/dashboard/stats', async (req, res) => {
 router.get('/transactions/global/recent', async (req, res) => {
     try {
         const [rows] = await db.query(
-            'SELECT * FROM Transactions ORDER BY timestamp DESC LIMIT 10'
+            'SELECT * FROM Transactions ORDER BY timestamp DESC LIMIT 20'
         );
         res.json(rows);
     } catch (error) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowDownCircle, ArrowUpCircle, Repeat, History, Search } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Repeat, History, Search, TrendingUp } from 'lucide-react';
 import '../styles/Pages.css';
 
 const TransactionPage = () => {
