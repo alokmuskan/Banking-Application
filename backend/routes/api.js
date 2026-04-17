@@ -97,10 +97,33 @@ router.get('/transactions/account/:id', async (req, res) => {
     }
 });
 
-// 7. Get Branch List (For dropdowns)
-router.get('/branches', async (req, res) => {
+// --- Dashboard & Analytics APIs ---
+
+// 8. Get Dashboard Stats
+router.get('/dashboard/stats', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM Branches');
+        const [[{customerCount}]] = await db.query('SELECT COUNT(*) as customerCount FROM Customers');
+        const [[{accountCount}]] = await db.query('SELECT COUNT(*) as accountCount FROM Accounts');
+        const [[{branchCount}]] = await db.query('SELECT COUNT(*) as branchCount FROM Branches');
+        const [[{totalBalance}]] = await db.query('SELECT SUM(balance) as totalBalance FROM Accounts');
+
+        res.json({
+            customers: customerCount,
+            accounts: accountCount,
+            branches: branchCount,
+            totalDeposits: totalBalance || 0
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 9. Get Global Recent Transactions
+router.get('/transactions/global/recent', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            'SELECT * FROM Transactions ORDER BY timestamp DESC LIMIT 10'
+        );
         res.json(rows);
     } catch (error) {
         res.status(500).json({ error: error.message });

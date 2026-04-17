@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, Landmark, TrendingUp } from 'lucide-react';
 import '../styles/Dashboard.css';
 
@@ -16,6 +17,7 @@ const StatCard = ({ title, value, icon: Icon, color }) => (
 );
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     customers: 0,
     accounts: 0,
@@ -24,30 +26,36 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    // In a real app, I'd fetch these from the backend
-    setStats({
-      customers: 3,
-      accounts: 4,
-      totalDeposits: '$10,450.00',
-      branches: 3
-    });
+    const fetchStats = async () => {
+      try {
+        const resp = await axios.get('http://localhost:5000/api/dashboard/stats');
+        setStats(resp.data);
+      } catch (err) {
+        console.error('Failed to fetch dashboard stats:', err);
+      }
+    };
+    fetchStats();
   }, []);
+
+  const formatCurrency = (val) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  };
 
   return (
     <div className="dashboard-container">
       <section className="stats-grid">
         <StatCard title="Total Customers" value={stats.customers} icon={Users} color="#3b82f6" />
         <StatCard title="Active Accounts" value={stats.accounts} icon={CreditCard} color="#10b981" />
-        <StatCard title="Total Deposits" value={stats.totalDeposits} icon={TrendingUp} color="#8b5cf6" />
+        <StatCard title="Total Deposits" value={formatCurrency(stats.totalDeposits)} icon={TrendingUp} color="#8b5cf6" />
         <StatCard title="Branches" value={stats.branches} icon={Landmark} color="#f59e0b" />
       </section>
 
       <section className="recent-activity glass">
         <h2>Quick Actions</h2>
         <div className="quick-actions">
-          <button className="btn-primary">New Customer</button>
-          <button className="btn-secondary">Open Account</button>
-          <button className="btn-secondary">Transfer Funds</button>
+          <button className="btn-primary" onClick={() => navigate('/customers')}>Register Customer</button>
+          <button className="btn-secondary" onClick={() => navigate('/accounts')}>Open Account</button>
+          <button className="btn-secondary" onClick={() => navigate('/transactions')}>Transfer Funds</button>
         </div>
       </section>
     </div>
