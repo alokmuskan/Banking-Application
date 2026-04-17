@@ -9,12 +9,12 @@ async function testConnection() {
             password: process.env.DB_PASS,
             database: process.env.DB_NAME
         });
-        console.log('✅ Connection successful!');
+        console.log('Connection successful!');
         const [rows] = await connection.execute('SELECT 1 + 1 AS solution');
         console.log('Result:', rows[0].solution);
         await connection.end();
     } catch (err) {
-        console.error('❌ Connection failed:', err.message);
+        console.error('Connection failed:', err.message);
     }
 }
 
