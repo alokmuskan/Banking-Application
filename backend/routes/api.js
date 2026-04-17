@@ -160,4 +160,14 @@ router.get('/transactions/global/recent', async (req, res) => {
     }
 });
 
+// 10. Get Branch List
+router.get('/branches', async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT * FROM Branches');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

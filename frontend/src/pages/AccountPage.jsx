@@ -17,28 +17,24 @@ const AccountPage = () => {
     branch_id: '', 
     account_type: 'Savings', 
     initial_balance: '0',
-    // New Customer fields
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    dob: ''
+    name: '', email: '', phone: '', address: '', dob: ''
   });
 
   const fetchData = async () => {
+    // Resilient fetching: fetch each independently so one 404 doesn't block the others
     try {
-      const respAcc = await axios.get('http://localhost:5000/api/customers');
-      const respBranch = await axios.get('http://localhost:5000/api/branches');
-      setCustomers(respAcc.data);
-      setBranches(respBranch.data);
-      
-      if(respAcc.data.length > 0) {
-        const respAllAcc = await axios.get(`http://localhost:5000/api/accounts/customer/${respAcc.data[0].customer_id}`);
-        setAccounts(respAllAcc.data);
+      const resp = await axios.get('http://localhost:5000/api/customers');
+      setCustomers(resp.data);
+      if(resp.data.length > 0) {
+        const accs = await axios.get(`http://localhost:5000/api/accounts/customer/${resp.data[0].customer_id}`);
+        setAccounts(accs.data);
       }
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error("Customers Fetch Error:", err); }
+
+    try {
+      const resp = await axios.get('http://localhost:5000/api/branches');
+      setBranches(resp.data);
+    } catch (err) { console.error("Branches Fetch Error:", err); }
   };
 
   useEffect(() => {
@@ -51,19 +47,15 @@ const AccountPage = () => {
         addToast("Please fill in all mandatory customer details.", "error");
         return false;
       }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         addToast("Invalid email format.", "error");
-        return false;
-      }
-      if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
-        addToast("Phone number must be 10 digits.", "error");
         return false;
       }
       
       const birthYear = new Date(formData.dob).getFullYear();
-      if (birthYear < 1920 || birthYear > new Date().getFullYear() - 1) {
-        addToast("Please enter a valid birth year (1920 - Present).", "error");
+      const currYear = new Date().getFullYear();
+      if (birthYear < 1920 || birthYear > currYear - 1) {
+        addToast("Please provide a valid birth year (1920 - Present).", "error");
         return false;
       }
     } else if (!formData.customer_id) {
@@ -72,7 +64,7 @@ const AccountPage = () => {
     }
 
     if (!formData.branch_id) {
-      addToast("Please select a branch.", "error");
+      addToast("Please select a branch (Ensure the server is running).", "error");
       return false;
     }
     return true;
@@ -87,11 +79,8 @@ const AccountPage = () => {
 
       if (isNewCustomer) {
         const custResp = await axios.post('http://localhost:5000/api/customers', {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          dob: formData.dob
+          name: formData.name, email: formData.email, phone: formData.phone,
+          address: formData.address, dob: formData.dob
         });
         finalCustomerId = custResp.data.id;
       }
@@ -103,7 +92,7 @@ const AccountPage = () => {
         initial_balance: formData.initial_balance
       });
 
-      addToast('Successfully processed! Your new Account is now active.', 'success');
+      addToast('Account created successfully!', 'success');
       setShowForm(false);
       setIsNewCustomer(false);
       setFormData({
@@ -112,7 +101,7 @@ const AccountPage = () => {
       });
       fetchData();
     } catch (err) {
-      addToast('Operation Failed: ' + (err.response?.data?.error || err.message), 'error');
+      addToast('Error: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -130,12 +119,22 @@ const AccountPage = () => {
         <form className="glass form-card" onSubmit={handleSubmit}>
           <div className="form-toggle-header">
             <h3>Open a New Bank Account</h3>
-            <button type="button" 
-              className={`toggle-btn ${isNewCustomer ? 'active' : ''}`}
-              onClick={() => setIsNewCustomer(!isNewCustomer)}
-            >
-              <UserPlus size={16} /> {isNewCustomer ? "Use Existing Customer" : "Register New Customer"}
-            </button>
+            <div className="toggle-group">
+               <button 
+                 type="button" 
+                 className={`toggle-btn ${!isNewCustomer ? 'active' : ''}`}
+                 onClick={() => setIsNewCustomer(false)}
+               >
+                 Existing
+               </button>
+               <button 
+                 type="button" 
+                 className={`toggle-btn ${isNewCustomer ? 'active' : ''}`}
+                 onClick={() => setIsNewCustomer(true)}
+               >
+                 <UserPlus size={16} /> New Customer
+               </button>
+            </div>
           </div>
 
           <div className="form-grid">
@@ -147,16 +146,15 @@ const AccountPage = () => {
                 <input type="date" placeholder="DOB *" required value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
                 <textarea className="full-width" placeholder="Permanent Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 
-                {/* KYC Simulation Fields */}
-                <div className="kyc-section full-width">
-                  <p>KYC Documents (Optional)</p>
+                <div className="kyc-section full-width visible">
+                  <p>KYC Verification (Photo / Identity)</p>
                   <div className="kyc-inputs">
                     <div className="file-input">
                       <label><Image size={16} /> Profile Photo</label>
                       <input type="file" accept="image/*" />
                     </div>
                     <div className="file-input">
-                      <label><FileCheck size={16} /> ID Proof (Aadhar/PAN)</label>
+                      <label><FileCheck size={16} /> ID Proof (Zip/PDF/Img)</label>
                       <input type="file" />
                     </div>
                   </div>
@@ -165,7 +163,7 @@ const AccountPage = () => {
             ) : (
               <select required value={formData.customer_id} onChange={e => setFormData({...formData, customer_id: e.target.value})}>
                 <option value="">Select Existing Customer</option>
-                {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} (CUST-{8000 + c.customer_id})</option>)}
+                {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} (ID: {c.customer_id})</option>)}
               </select>
             )}
             
