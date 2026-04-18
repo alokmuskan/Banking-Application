@@ -18,6 +18,12 @@ CREATE TABLE Customers (
     phone VARCHAR(20),
     address TEXT,
     dob DATE,
+    gender ENUM('Male', 'Female', 'Other'),
+    occupation VARCHAR(100),
+    annual_income DECIMAL(15, 2),
+    nationality VARCHAR(50) DEFAULT 'Indian',
+    kyc_document_type VARCHAR(50),
+    kyc_document_no VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

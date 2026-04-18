@@ -18,8 +18,14 @@ const AccountPage = () => {
     account_type: 'Savings', 
     initial_balance: '0',
     name: '', email: '', phone: '', address: '', dob: '',
-    profilePhoto: null, idProof: null
+    profilePhoto: null, idProof: null, signature: null,
+    gender: '', occupation: '', annual_income: '', nationality: 'Indian',
+    kyc_document_type: '', kyc_document_no: ''
   });
+
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedTransactions, setSelectedTransactions] = useState([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
 
   const fetchData = async () => {
     // Robust fetching: isolation of each request so one 404 or error doesn't block everything
@@ -94,7 +100,10 @@ const AccountPage = () => {
         const custResp = await axios.post('http://localhost:5000/api/customers', {
           name: formData.name, email: formData.email, phone: formData.phone,
           address: formData.address, dob: formData.dob,
-          kyc_status: 'Pending' // Simulating KYC metadata
+          gender: formData.gender, occupation: formData.occupation,
+          annual_income: formData.annual_income, nationality: formData.nationality,
+          kyc_document_type: formData.kyc_document_type, kyc_document_no: formData.kyc_document_no,
+          kyc_status: 'Pending'
         });
         finalCustomerId = custResp.data.id;
       }
@@ -117,6 +126,19 @@ const AccountPage = () => {
       fetchData();
     } catch (err) {
       addToast('Error: ' + (err.response?.data?.error || err.message), 'error');
+    }
+  };
+
+  const handleAccountClick = async (acc) => {
+    setSelectedAccount(acc);
+    setLoadingTransactions(true);
+    try {
+      const resp = await axios.get(`http://localhost:5000/api/transactions/account/${acc.account_id}`);
+      setSelectedTransactions(resp.data);
+    } catch (err) {
+      addToast("Failed to load transactions.", "error");
+    } finally {
+      setLoadingTransactions(false);
     }
   };
 
@@ -161,8 +183,28 @@ const AccountPage = () => {
                 <input type="date" placeholder="DOB *" required value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
                 <textarea className="full-width" placeholder="Permanent Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
                 
+                <div className="form-group-title full-width">Personal & Banking Details</div>
+                <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}>
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+                <input type="text" placeholder="Occupation" value={formData.occupation} onChange={e => setFormData({...formData, occupation: e.target.value})} />
+                <input type="number" placeholder="Annual Income (₹)" value={formData.annual_income} onChange={e => setFormData({...formData, annual_income: e.target.value})} />
+                <input type="text" placeholder="Nationality" value={formData.nationality} onChange={e => setFormData({...formData, nationality: e.target.value})} />
+                
+                <select value={formData.kyc_document_type} onChange={e => setFormData({...formData, kyc_document_type: e.target.value})}>
+                  <option value="">KYC Document Type</option>
+                  <option value="Aadhar">Aadhar Card</option>
+                  <option value="PAN">PAN Card</option>
+                  <option value="Passport">Passport</option>
+                  <option value="Voter ID">Voter ID</option>
+                </select>
+                <input type="text" placeholder="Document Number" value={formData.kyc_document_no} onChange={e => setFormData({...formData, kyc_document_no: e.target.value})} />
+
                 <div className="kyc-section full-width visible">
-                  <p>KYC Verification (Photo / Identity)</p>
+                  <p>Digital KYC & Identity Verification</p>
                   <div className="kyc-inputs">
                     <div className="file-input">
                       <label><Image size={16} /> Profile Photo</label>
@@ -173,10 +215,17 @@ const AccountPage = () => {
                       />
                     </div>
                     <div className="file-input">
-                      <label><FileCheck size={16} /> ID Proof (Zip/PDF/Img)</label>
+                      <label><FileCheck size={16} /> ID Proof (Self-Attested)</label>
                       <input 
                         type="file" 
                         onChange={e => setFormData({...formData, idProof: e.target.files[0]})} 
+                      />
+                    </div>
+                    <div className="file-input full-width">
+                      <label><Plus size={16} /> Digital Signature (Simulation)</label>
+                      <input 
+                        type="file" 
+                        onChange={e => setFormData({...formData, signature: e.target.files[0]})} 
                       />
                     </div>
                   </div>
@@ -205,7 +254,11 @@ const AccountPage = () => {
 
       <div className="account-list grid">
         {accounts.map(acc => (
-          <div key={acc.account_id} className="glass list-card account-card">
+          <div 
+            key={acc.account_id} 
+            className={`glass list-card account-card clickable ${selectedAccount?.account_id === acc.account_id ? 'selected' : ''}`}
+            onClick={() => handleAccountClick(acc)}
+          >
             <div className="card-header">
               <Landmark size={24} color="var(--accent)" />
               <span className="account-no">Acc No: 1000{5000 + acc.account_id}</span>
@@ -218,6 +271,51 @@ const AccountPage = () => {
           </div>
         ))}
       </div>
+
+      {selectedAccount && (
+        <div className="modal-overlay" onClick={() => setSelectedAccount(null)}>
+          <div className="glass modal-content detail-view" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Account Statement & Details</h3>
+              <button className="close-btn" onClick={() => setSelectedAccount(null)}>&times;</button>
+            </div>
+            
+            <div className="detail-grid">
+              <div className="info-section">
+                <h4>Customer Profile</h4>
+                <div className="info-row"><span>Name:</span> {customers.find(c => c.customer_id === selectedAccount.customer_id)?.name}</div>
+                <div className="info-row"><span>Account No:</span> 1000{5000 + selectedAccount.account_id}</div>
+                <div className="info-row"><span>Type:</span> {selectedAccount.account_type}</div>
+                <div className="info-row"><span>Balance:</span> ₹{parseFloat(selectedAccount.balance).toLocaleString('en-IN')}</div>
+                <div className="info-row"><span>Status:</span> <span className={`status-tag ${selectedAccount.status.toLowerCase()}`}>{selectedAccount.status}</span></div>
+              </div>
+
+              <div className="transaction-section">
+                <h4>Recent Transactions</h4>
+                {loadingTransactions ? (
+                  <p>Loading transactions...</p>
+                ) : selectedTransactions.length > 0 ? (
+                  <div className="mini-statement">
+                    {selectedTransactions.map(tx => (
+                      <div key={tx.transaction_id} className="tx-item">
+                        <div className="tx-info">
+                          <span className="tx-type">{tx.type}</span>
+                          <span className="tx-date">{new Date(tx.timestamp).toLocaleDateString()}</span>
+                        </div>
+                        <span className={`tx-amount ${tx.type === 'Deposit' ? 'text-success' : 'text-danger'}`}>
+                          {tx.type === 'Deposit' ? '+' : '-'}₹{tx.amount}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="no-data">No recent transactions</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

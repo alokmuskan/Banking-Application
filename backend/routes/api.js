@@ -7,7 +7,11 @@ const db = require('../config/db');
 // 1. Create Customer
 router.post('/customers', async (req, res) => {
     try {
-        const { name, email, phone, address, dob } = req.body;
+        const { 
+            name, email, phone, address, dob, 
+            gender, occupation, annual_income, nationality, 
+            kyc_document_type, kyc_document_no 
+        } = req.body;
 
         // --- VALIDATION ---
         
@@ -23,13 +27,13 @@ router.post('/customers', async (req, res) => {
             return res.status(400).json({ error: 'Phone number must be exactly 10 digits' });
         }
 
-        // 3. Date of Birth check (Realistic year range and not in future)
+        // 3. Date of Birth check
         const birthDate = new Date(dob);
         const birthYear = birthDate.getFullYear();
         const currentYear = new Date().getFullYear();
 
         if (birthDate > new Date() || birthYear < 1900 || birthYear > currentYear) {
-            return res.status(400).json({ error: 'Please provide a valid Date of Birth (Year must be between 1900 and ' + currentYear + ')' });
+            return res.status(400).json({ error: 'Please provide a valid Date of Birth' });
         }
 
         // 4. Duplicate Email check
@@ -39,8 +43,8 @@ router.post('/customers', async (req, res) => {
         }
 
         const [result] = await db.execute(
-            'INSERT INTO Customers (name, email, phone, address, dob) VALUES (?, ?, ?, ?, ?)',
-            [name, email, phone, address, dob]
+            'INSERT INTO Customers (name, email, phone, address, dob, gender, occupation, annual_income, nationality, kyc_document_type, kyc_document_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, email, phone, address, dob, gender, occupation, annual_income, nationality || 'Indian', kyc_document_type, kyc_document_no]
         );
         res.status(201).json({ message: 'Customer created successfully', id: result.insertId });
     } catch (error) {
