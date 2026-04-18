@@ -104,6 +104,39 @@ router.get('/accounts/customer/:id', async (req, res) => {
 });
 
 
+// --- Beneficiary APIs ---
+
+// Add Beneficiary
+router.post('/beneficiaries/add', async (req, res) => {
+    try {
+        const { customer_id, payee_name, payee_account_no, bank_name, ifsc_code } = req.body;
+        
+        // Prevent adding own account (optional logic but good practice)
+        const [ownAccounts] = await db.execute('SELECT * FROM Accounts WHERE customer_id = ? AND account_id = ?', [customer_id, payee_account_no]);
+        if (ownAccounts.length > 0) {
+            return res.status(400).json({ error: 'Cannot add your own account as a beneficiary.' });
+        }
+
+        const [result] = await db.execute(
+            'INSERT INTO Beneficiaries (customer_id, payee_name, payee_account_no, bank_name, ifsc_code) VALUES (?, ?, ?, ?, ?)',
+            [customer_id, payee_name, payee_account_no, bank_name || 'NexusBank', ifsc_code]
+        );
+        res.status(201).json({ message: 'Beneficiary added successfully', id: result.insertId });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get Beneficiaries by Customer
+router.get('/beneficiaries/:customerId', async (req, res) => {
+    try {
+        const [rows] = await db.execute('SELECT * FROM Beneficiaries WHERE customer_id = ? AND status = "Active"', [req.params.customerId]);
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- Transaction APIs ---
 
 // 5. Deposit / Withdrawal / Transfer (Unified Handler)
@@ -114,6 +147,22 @@ router.post('/transactions', async (req, res) => {
         // Validation for Transfer
         if (type === 'Transfer' && (!from_account_id || !to_account_id)) {
             return res.status(400).json({ error: 'Both accounts are required for transfer' });
+        }
+
+        if (type === 'Transfer') {
+            // Check if to_account_id is a registered beneficiary
+            const [accountInfo] = await db.execute('SELECT customer_id FROM Accounts WHERE account_id = ?', [from_account_id]);
+            if (accountInfo.length === 0) return res.status(404).json({ error: 'Source account not found' });
+            
+            const customerId = accountInfo[0].customer_id;
+            const [ben] = await db.execute(
+                'SELECT * FROM Beneficiaries WHERE customer_id = ? AND payee_account_no = ? AND status = "Active"',
+                [customerId, to_account_id]
+            );
+            
+            if (ben.length === 0) {
+                return res.status(400).json({ error: 'Destination account is not a registered beneficiary.' });
+            }
         }
 
         // We use a single INSERT. Our database triggers will handle balance updates and insufficient funds check.
@@ -178,7 +227,79 @@ router.get('/transactions/global/recent', async (req, res) => {
     }
 });
 
-// 10. Get Branch List
+// 10. Get Spending Analytics (Last 6 Months)
+router.get('/analytics/spending/:accountId', async (req, res) => {
+    try {
+        const accId = req.params.accountId;
+        // Fetch last 6 months data
+        const [rows] = await db.execute(`
+            SELECT 
+                DATE_FORMAT(timestamp, '%b') as month_name,
+                MONTH(timestamp) as month_num,
+                YEAR(timestamp) as year_num,
+                type,
+                SUM(amount) as total
+            FROM Transactions
+            WHERE (from_account_id = ? OR to_account_id = ?)
+              AND timestamp >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+            GROUP BY year_num, month_num, month_name, type
+            ORDER BY year_num ASC, month_num ASC
+        `, [accId, accId]);
+
+        // Process data into format required by recharts: [{ name: 'Jan', income: 4000, expense: 2400 }]
+        const chartDataMap = new Map();
+        
+        rows.forEach(row => {
+            const key = `${row.month_name}`;
+            if (!chartDataMap.has(key)) {
+                chartDataMap.set(key, { name: key, income: 0, expense: 0 });
+            }
+            const monthData = chartDataMap.get(key);
+            
+            // "Deposit" or "Transfer" into account is income
+            // "Withdrawal" or "Transfer" out of account is expense
+            // SQL doesn't differentiate transfer IN vs OUT by type name alone (both are 'Transfer')
+            // So we need to calculate it properly. Actually our group by 'type' is flawed for Transfers.
+        });
+
+        // Let's do a better query that categorizes IN vs OUT relative to the account
+        const [preciseRows] = await db.execute(`
+            SELECT 
+                DATE_FORMAT(timestamp, '%b') as month_name,
+                MONTH(timestamp) as month_num,
+                YEAR(timestamp) as year_num,
+                CASE 
+                    WHEN to_account_id = ? THEN 'income'
+                    WHEN from_account_id = ? THEN 'expense'
+                END as cashflow_type,
+                SUM(amount) as total
+            FROM Transactions
+            WHERE (from_account_id = ? OR to_account_id = ?)
+              AND timestamp >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+            GROUP BY year_num, month_num, month_name, cashflow_type
+            ORDER BY year_num ASC, month_num ASC
+        `, [accId, accId, accId, accId]);
+
+        const processedDataMap = new Map();
+        preciseRows.forEach(row => {
+            const key = `${row.month_name}`;
+            if (!processedDataMap.has(key)) {
+                processedDataMap.set(key, { name: key, income: 0, expense: 0 });
+            }
+            if (row.cashflow_type === 'income') {
+                processedDataMap.get(key).income += parseFloat(row.total);
+            } else if (row.cashflow_type === 'expense') {
+                processedDataMap.get(key).expense += parseFloat(row.total);
+            }
+        });
+
+        res.json(Array.from(processedDataMap.values()));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 11. Get Branch List
 router.get('/branches', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM Branches');

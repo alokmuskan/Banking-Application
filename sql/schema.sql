@@ -4,6 +4,7 @@ USE BankingMS;
 
 -- Drop existing tables in reverse order of dependencies to avoid foreign key errors
 DROP TABLE IF EXISTS Transactions;
+DROP TABLE IF EXISTS Beneficiaries;
 DROP TABLE IF EXISTS Employees;
 DROP TABLE IF EXISTS Accounts;
 DROP TABLE IF EXISTS Customers;
@@ -55,7 +56,20 @@ CREATE TABLE Customers (
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 
--- 4. Accounts Table
+-- 4. Beneficiaries Table
+CREATE TABLE Beneficiaries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    payee_name VARCHAR(100) NOT NULL,
+    payee_account_no INT NOT NULL,
+    bank_name VARCHAR(100) DEFAULT 'NexusBank',
+    ifsc_code VARCHAR(20),
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE
+);
+
+-- 5. Accounts Table
 CREATE TABLE Accounts (
     account_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT,
@@ -68,7 +82,7 @@ CREATE TABLE Accounts (
     FOREIGN KEY (branch_id) REFERENCES Branches(branch_id) ON DELETE SET NULL
 );
 
--- 5. Transactions Table
+-- 6. Transactions Table
 CREATE TABLE Transactions (
     transaction_id INT AUTO_INCREMENT PRIMARY KEY,
     from_account_id INT,
@@ -81,7 +95,7 @@ CREATE TABLE Transactions (
     FOREIGN KEY (to_account_id) REFERENCES Accounts(account_id)
 );
 
--- 6. Employees Table
+-- 7. Employees Table
 CREATE TABLE Employees (
     employee_id INT AUTO_INCREMENT PRIMARY KEY,
     branch_id INT,
