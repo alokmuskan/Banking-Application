@@ -210,11 +210,18 @@ input, select, textarea {
 
 /* KYC Section Styling */
 .kyc-section {
-  margin-top: 1.5rem;
-  padding: 1.5rem;
-  background: var(--bg-tertiary);
-  border-radius: 1rem;
-  border: 1px dashed var(--border);
+  margin-top: 2rem;
+  padding: 1.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 1.25rem;
+  border: 1px dashed var(--accent);
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.kyc-section:hover {
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .kyc-section p {

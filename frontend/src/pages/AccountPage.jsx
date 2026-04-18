@@ -17,24 +17,37 @@ const AccountPage = () => {
     branch_id: '', 
     account_type: 'Savings', 
     initial_balance: '0',
-    name: '', email: '', phone: '', address: '', dob: ''
+    name: '', email: '', phone: '', address: '', dob: '',
+    profilePhoto: null, idProof: null
   });
 
   const fetchData = async () => {
-    // Resilient fetching: fetch each independently so one 404 doesn't block the others
+    // Robust fetching: isolation of each request so one 404 or error doesn't block everything
     try {
       const resp = await axios.get('http://localhost:5000/api/customers');
       setCustomers(resp.data);
-      if(resp.data.length > 0) {
-        const accs = await axios.get(`http://localhost:5000/api/accounts/customer/${resp.data[0].customer_id}`);
-        setAccounts(accs.data);
+      
+      // Fetch accounts for the first customer if available
+      if(resp.data && resp.data.length > 0) {
+        try {
+          const accs = await axios.get(`http://localhost:5000/api/accounts/customer/${resp.data[0].customer_id}`);
+          setAccounts(accs.data);
+        } catch (accErr) {
+          console.error("Accounts Fetch Error:", accErr);
+        }
       }
-    } catch (err) { console.error("Customers Fetch Error:", err); }
+    } catch (err) { 
+      console.error("Customers Fetch Error:", err); 
+      addToast("Failed to load customers. Check backend connection.", "error");
+    }
 
     try {
       const resp = await axios.get('http://localhost:5000/api/branches');
       setBranches(resp.data);
-    } catch (err) { console.error("Branches Fetch Error:", err); }
+    } catch (err) { 
+      console.error("Branches Fetch Error (Possible 404):", err);
+      // addToast("Branches API missing or 404. Restore backend route.", "error");
+    }
   };
 
   useEffect(() => {
@@ -80,7 +93,8 @@ const AccountPage = () => {
       if (isNewCustomer) {
         const custResp = await axios.post('http://localhost:5000/api/customers', {
           name: formData.name, email: formData.email, phone: formData.phone,
-          address: formData.address, dob: formData.dob
+          address: formData.address, dob: formData.dob,
+          kyc_status: 'Pending' // Simulating KYC metadata
         });
         finalCustomerId = custResp.data.id;
       }
@@ -97,7 +111,8 @@ const AccountPage = () => {
       setIsNewCustomer(false);
       setFormData({
         customer_id: '', branch_id: '', account_type: 'Savings', initial_balance: '0',
-        name: '', email: '', phone: '', address: '', dob: ''
+        name: '', email: '', phone: '', address: '', dob: '',
+        profilePhoto: null, idProof: null
       });
       fetchData();
     } catch (err) {
@@ -151,11 +166,18 @@ const AccountPage = () => {
                   <div className="kyc-inputs">
                     <div className="file-input">
                       <label><Image size={16} /> Profile Photo</label>
-                      <input type="file" accept="image/*" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={e => setFormData({...formData, profilePhoto: e.target.files[0]})} 
+                      />
                     </div>
                     <div className="file-input">
                       <label><FileCheck size={16} /> ID Proof (Zip/PDF/Img)</label>
-                      <input type="file" />
+                      <input 
+                        type="file" 
+                        onChange={e => setFormData({...formData, idProof: e.target.files[0]})} 
+                      />
                     </div>
                   </div>
                 </div>
