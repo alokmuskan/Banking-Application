@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, Clock, Info, FileText, FileSpreadsheet } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import '../styles/Pages.css';
 
@@ -60,7 +60,7 @@ const StatementPage = () => {
       `${t.type === 'Deposit' ? '+' : '-'} ${parseFloat(t.amount).toFixed(2)}`
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 45,

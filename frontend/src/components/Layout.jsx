@@ -1,9 +1,17 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, CreditCard, ArrowLeftRight, FileText, Landmark } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, UserPlus, CreditCard, ArrowLeftRight, FileText, Landmark, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import '../styles/Layout.css';
 
 const Layout = ({ children }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   return (
     <div className="app-container">
       <aside className="sidebar glass">
@@ -38,7 +46,11 @@ const Layout = ({ children }) => {
         <header className="top-bar glass">
           <h1>Banking Management System</h1>
           <div className="user-profile">
-            <span>Admin Portal</span>
+            <span className="role-badge">{user?.role?.toUpperCase()}</span>
+            <span>{user?.email}</span>
+            <button className="logout-btn" onClick={handleLogout}>
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
         <div className="page-content">

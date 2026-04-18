@@ -82,3 +82,39 @@
   margin: 0 auto;
   width: 100%;
 }
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.role-badge {
+  background: rgba(var(--accent-rgb), 0.2);
+  color: var(--accent);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.logout-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 80, 80, 0.1);
+  color: #ff5050;
+}

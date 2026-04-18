@@ -10,9 +10,19 @@ CREATE TABLE Branches (
     address TEXT
 );
 
--- 2. Customers Table
+-- 2. Users Table
+CREATE TABLE Users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'teller', 'customer') DEFAULT 'customer',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Customers Table
 CREATE TABLE Customers (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNIQUE,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     phone VARCHAR(20),
@@ -33,10 +43,11 @@ CREATE TABLE Customers (
     nationality VARCHAR(50) DEFAULT 'Indian',
     kyc_document_type VARCHAR(50),
     kyc_document_no VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 
--- 3. Accounts Table
+-- 4. Accounts Table
 CREATE TABLE Accounts (
     account_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT,
@@ -49,7 +60,7 @@ CREATE TABLE Accounts (
     FOREIGN KEY (branch_id) REFERENCES Branches(branch_id) ON DELETE SET NULL
 );
 
--- 4. Transactions Table
+-- 5. Transactions Table
 CREATE TABLE Transactions (
     transaction_id INT AUTO_INCREMENT PRIMARY KEY,
     from_account_id INT,
@@ -62,7 +73,7 @@ CREATE TABLE Transactions (
     FOREIGN KEY (to_account_id) REFERENCES Accounts(account_id)
 );
 
--- 5. Employees Table
+-- 6. Employees Table
 CREATE TABLE Employees (
     employee_id INT AUTO_INCREMENT PRIMARY KEY,
     branch_id INT,
