@@ -8,7 +8,9 @@ const db = require('../config/db');
 router.post('/customers', async (req, res) => {
     try {
         const { 
-            name, email, phone, address, dob, 
+            name, email, phone, dob, 
+            perm_village, perm_district, perm_city, perm_state, perm_pincode,
+            temp_village, temp_district, temp_city, temp_state, temp_pincode,
             gender, occupation, annual_income, nationality, 
             kyc_document_type, kyc_document_no 
         } = req.body;
@@ -43,8 +45,20 @@ router.post('/customers', async (req, res) => {
         }
 
         const [result] = await db.execute(
-            'INSERT INTO Customers (name, email, phone, address, dob, gender, occupation, annual_income, nationality, kyc_document_type, kyc_document_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, email, phone, address, dob, gender, occupation, annual_income, nationality || 'Indian', kyc_document_type, kyc_document_no]
+            `INSERT INTO Customers (
+                name, email, phone, dob, 
+                perm_village, perm_district, perm_city, perm_state, perm_pincode,
+                temp_village, temp_district, temp_city, temp_state, temp_pincode,
+                gender, occupation, annual_income, nationality, 
+                kyc_document_type, kyc_document_no
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                name, email, phone, dob, 
+                perm_village, perm_district, perm_city, perm_state, perm_pincode,
+                temp_village, temp_district, temp_city, temp_state, temp_pincode,
+                gender, occupation, annual_income, nationality || 'Indian', 
+                kyc_document_type, kyc_document_no
+            ]
         );
         res.status(201).json({ message: 'Customer created successfully', id: result.insertId });
     } catch (error) {

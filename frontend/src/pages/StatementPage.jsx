@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Clock, Info } from 'lucide-react';
+import { Search, Clock, Info, FileText, FileSpreadsheet } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import '../styles/Pages.css';
 
 const StatementPage = () => {
@@ -36,6 +39,52 @@ const StatementPage = () => {
     }
   }, [accId]);
 
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    
+    // Add Brand Header
+    doc.setFontSize(22);
+    doc.setTextColor(40, 44, 52);
+    doc.text("Banking Management System", 14, 22);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Account Statement for ID: ${accId || 'All'}`, 14, 32);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
+
+    const tableColumn = ["Date", "Type", "Description", "Amount (INR)"];
+    const tableRows = history.map(t => [
+      new Date(t.timestamp).toLocaleDateString(),
+      t.type,
+      t.description || '-',
+      `${t.type === 'Deposit' ? '+' : '-'} ${parseFloat(t.amount).toFixed(2)}`
+    ]);
+
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 45,
+      theme: 'grid',
+      headStyles: { fillColor: [108, 92, 231] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+
+    doc.save(`Statement_Acc_${accId || 'All'}.pdf`);
+  };
+
+  const downloadExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(history.map(t => ({
+      Date: new Date(t.timestamp).toLocaleDateString(),
+      Time: new Date(t.timestamp).toLocaleTimeString(),
+      Type: t.type,
+      Description: t.description || '-',
+      Amount: t.amount
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Statement");
+    XLSX.writeFile(workbook, `Statement_Acc_${accId || 'All'}.xlsx`);
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -48,6 +97,14 @@ const StatementPage = () => {
             onChange={e => setAccId(e.target.value)} 
           />
           <Search size={18} color="var(--text-secondary)" />
+        </div>
+        <div className="export-controls">
+          <button className="btn-secondary" onClick={downloadPDF} disabled={history.length === 0}>
+            <FileText size={18} /> Download PDF
+          </button>
+          <button className="btn-secondary" onClick={downloadExcel} disabled={history.length === 0}>
+            <FileSpreadsheet size={18} /> Download XLSX
+          </button>
         </div>
       </div>
 

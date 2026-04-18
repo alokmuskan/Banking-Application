@@ -17,11 +17,15 @@ const AccountPage = () => {
     branch_id: '', 
     account_type: 'Savings', 
     initial_balance: '0',
-    name: '', email: '', phone: '', address: '', dob: '',
+    name: '', email: '', phone: '', dob: '',
+    perm_village: '', perm_district: '', perm_city: '', perm_state: '', perm_pincode: '',
+    temp_village: '', temp_district: '', temp_city: '', temp_state: '', temp_pincode: '',
     profilePhoto: null, idProof: null, signature: null,
     gender: '', occupation: '', annual_income: '', nationality: 'Indian',
     kyc_document_type: '', kyc_document_no: ''
   });
+
+  const [isSameAsPermanent, setIsSameAsPermanent] = useState(false);
 
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedTransactions, setSelectedTransactions] = useState([]);
@@ -99,7 +103,14 @@ const AccountPage = () => {
       if (isNewCustomer) {
         const custResp = await axios.post('http://localhost:5000/api/customers', {
           name: formData.name, email: formData.email, phone: formData.phone,
-          address: formData.address, dob: formData.dob,
+          dob: formData.dob,
+          perm_village: formData.perm_village, perm_district: formData.perm_district, 
+          perm_city: formData.perm_city, perm_state: formData.perm_state, perm_pincode: formData.perm_pincode,
+          temp_village: isSameAsPermanent ? formData.perm_village : formData.temp_village,
+          temp_district: isSameAsPermanent ? formData.perm_district : formData.temp_district,
+          temp_city: isSameAsPermanent ? formData.perm_city : formData.temp_city,
+          temp_state: isSameAsPermanent ? formData.perm_state : formData.temp_state,
+          temp_pincode: isSameAsPermanent ? formData.perm_pincode : formData.temp_pincode,
           gender: formData.gender, occupation: formData.occupation,
           annual_income: formData.annual_income, nationality: formData.nationality,
           kyc_document_type: formData.kyc_document_type, kyc_document_no: formData.kyc_document_no,
@@ -120,9 +131,14 @@ const AccountPage = () => {
       setIsNewCustomer(false);
       setFormData({
         customer_id: '', branch_id: '', account_type: 'Savings', initial_balance: '0',
-        name: '', email: '', phone: '', address: '', dob: '',
-        profilePhoto: null, idProof: null
+        name: '', email: '', phone: '', dob: '',
+        perm_village: '', perm_district: '', perm_city: '', perm_state: '', perm_pincode: '',
+        temp_village: '', temp_district: '', temp_city: '', temp_state: '', temp_pincode: '',
+        profilePhoto: null, idProof: null, signature: null,
+        gender: '', occupation: '', annual_income: '', nationality: 'Indian',
+        kyc_document_type: '', kyc_document_no: ''
       });
+      setIsSameAsPermanent(false);
       fetchData();
     } catch (err) {
       addToast('Error: ' + (err.response?.data?.error || err.message), 'error');
@@ -181,7 +197,34 @@ const AccountPage = () => {
                 <input type="email" placeholder="Email Address *" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                 <input type="text" placeholder="Phone (10 digits)" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                 <input type="date" placeholder="DOB *" required value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} />
-                <textarea className="full-width" placeholder="Permanent Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                <div className="form-group-title full-width">Permanent Address</div>
+                <input type="text" placeholder="Village/Area" value={formData.perm_village} onChange={e => setFormData({...formData, perm_village: e.target.value})} />
+                <input type="text" placeholder="District" value={formData.perm_district} onChange={e => setFormData({...formData, perm_district: e.target.value})} />
+                <input type="text" placeholder="City" value={formData.perm_city} onChange={e => setFormData({...formData, perm_city: e.target.value})} />
+                <input type="text" placeholder="State" value={formData.perm_state} onChange={e => setFormData({...formData, perm_state: e.target.value})} />
+                <input type="text" placeholder="Pincode" value={formData.perm_pincode} onChange={e => setFormData({...formData, perm_pincode: e.target.value})} />
+
+                <div className="full-width address-checkbox">
+                  <label>
+                    <input 
+                      type="checkbox" 
+                      checked={isSameAsPermanent} 
+                      onChange={e => setIsSameAsPermanent(e.target.checked)} 
+                    />
+                    Current address same as permanent address
+                  </label>
+                </div>
+
+                {!isSameAsPermanent && (
+                  <>
+                    <div className="form-group-title full-width">Current Address</div>
+                    <input type="text" placeholder="Village/Area" value={formData.temp_village} onChange={e => setFormData({...formData, temp_village: e.target.value})} />
+                    <input type="text" placeholder="District" value={formData.temp_district} onChange={e => setFormData({...formData, temp_district: e.target.value})} />
+                    <input type="text" placeholder="City" value={formData.temp_city} onChange={e => setFormData({...formData, temp_city: e.target.value})} />
+                    <input type="text" placeholder="State" value={formData.temp_state} onChange={e => setFormData({...formData, temp_state: e.target.value})} />
+                    <input type="text" placeholder="Pincode" value={formData.temp_pincode} onChange={e => setFormData({...formData, temp_pincode: e.target.value})} />
+                  </>
+                )}
                 
                 <div className="form-group-title full-width">Personal & Banking Details</div>
                 <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}>
