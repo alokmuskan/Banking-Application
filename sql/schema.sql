@@ -2,6 +2,14 @@
 CREATE DATABASE IF NOT EXISTS BankingMS;
 USE BankingMS;
 
+-- Drop existing tables in reverse order of dependencies to avoid foreign key errors
+DROP TABLE IF EXISTS Transactions;
+DROP TABLE IF EXISTS Employees;
+DROP TABLE IF EXISTS Accounts;
+DROP TABLE IF EXISTS Customers;
+DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS Branches;
+
 -- 1. Branches Table
 CREATE TABLE Branches (
     branch_id INT AUTO_INCREMENT PRIMARY KEY,
