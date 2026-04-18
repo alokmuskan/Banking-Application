@@ -6,6 +6,7 @@ const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const supportRoutes = require('./routes/support');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api', productRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api', apiRoutes);
 
 // Health Check

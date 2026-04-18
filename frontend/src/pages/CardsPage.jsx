@@ -109,12 +109,16 @@ const CardsPage = () => {
                     <div className="status-indicator">
                         Status: <span className={`status-tag ${card.status.toLowerCase()}`}>{card.status}</span>
                     </div>
-                    <button 
-                        onClick={() => toggleStatus(card.id, card.status)}
-                        className={`action-btn ${card.status === 'Active' ? 'block-btn' : 'unblock-btn'}`}
-                    >
-                        {card.status === 'Active' ? <><ShieldAlert size={16}/> Freeze Card</> : <><CheckCircle size={16}/> Unfreeze</>}
-                    </button>
+                    {card.status === 'Pending' ? (
+                        <div style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Awaiting Admin Approval</div>
+                    ) : (
+                        <button 
+                            onClick={() => toggleStatus(card.id, card.status)}
+                            className={`action-btn ${card.status === 'Active' ? 'block-btn' : 'unblock-btn'}`}
+                        >
+                            {card.status === 'Active' ? <><ShieldAlert size={16}/> Freeze Card</> : <><CheckCircle size={16}/> Unfreeze</>}
+                        </button>
+                    )}
                 </div>
             </div>
         ))}

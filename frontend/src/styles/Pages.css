@@ -717,7 +717,9 @@ input, select, textarea {
   cursor: pointer;
 }
 
-
+.toggle-btn-auth:hover {
+  text-decoration: underline;
+}
 
 /* Virtual Cards Styles */
 .cards-grid {

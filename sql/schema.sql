@@ -81,7 +81,7 @@ CREATE TABLE Accounts (
     account_type ENUM('Savings', 'Current') NOT NULL,
     balance DECIMAL(15, 2) DEFAULT 0.00,
     open_date DATE,
-    status ENUM('Active', 'Closed', 'Dormant') DEFAULT 'Active',
+    status ENUM('Pending', 'Active', 'Closed', 'Dormant', 'Rejected') DEFAULT 'Pending',
     FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE,
     FOREIGN KEY (branch_id) REFERENCES Branches(branch_id) ON DELETE SET NULL
 );
@@ -95,7 +95,7 @@ CREATE TABLE Cards (
     expiry_date VARCHAR(5) NOT NULL,
     cvv VARCHAR(3) NOT NULL,
     type ENUM('Debit', 'Credit') DEFAULT 'Debit',
-    status ENUM('Active', 'Blocked', 'Frozen') DEFAULT 'Active',
+    status ENUM('Pending', 'Active', 'Blocked', 'Frozen', 'Rejected') DEFAULT 'Pending',
     issue_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE,
     FOREIGN KEY (account_id) REFERENCES Accounts(account_id) ON DELETE CASCADE
@@ -109,7 +109,7 @@ CREATE TABLE Loans (
     principal DECIMAL(15,2) NOT NULL,
     interest_rate DECIMAL(5,2) NOT NULL,
     term_months INT NOT NULL,
-    status ENUM('Pending', 'Approved', 'Active', 'Settled') DEFAULT 'Pending',
+    status ENUM('Pending', 'Approved', 'Active', 'Settled', 'Rejected') DEFAULT 'Pending',
     application_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE
 );

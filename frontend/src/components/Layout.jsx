@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { LayoutDashboard, UserPlus, CreditCard, ArrowLeftRight, FileText, Landmark, LogOut, Wallet, PiggyBank, Bell, Headset, CheckCheck } from 'lucide-react';
+import { LayoutDashboard, UserPlus, CreditCard, ArrowLeftRight, FileText, Landmark, LogOut, Wallet, PiggyBank, Bell, Headset, CheckCheck, ListChecks } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Layout.css';
 
@@ -57,14 +57,22 @@ const Layout = ({ children }) => {
             <LayoutDashboard size={20} />
             <span>Dashboard</span>
           </NavLink>
-          <NavLink to="/customers" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <UserPlus size={20} />
-            <span>Customers</span>
-          </NavLink>
-          <NavLink to="/accounts" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <CreditCard size={20} />
-            <span>Accounts</span>
-          </NavLink>
+          {user?.role !== 'customer' && (
+              <>
+                  <NavLink to="/customers" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                    <UserPlus size={20} />
+                    <span>Customers</span>
+                  </NavLink>
+                  <NavLink to="/accounts" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                    <CreditCard size={20} />
+                    <span>Accounts</span>
+                  </NavLink>
+                  <NavLink to="/approvals" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                    <ListChecks size={20} />
+                    <span>Approvals</span>
+                  </NavLink>
+              </>
+          )}
           <NavLink to="/transactions" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <ArrowLeftRight size={20} />
             <span>Financial Hub</span>

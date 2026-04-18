@@ -137,6 +137,20 @@ router.get('/beneficiaries/:customerId', async (req, res) => {
     }
 });
 
+// 4. Request Account (Customer Portal)
+router.post('/accounts/request', async (req, res) => {
+    try {
+        const { customer_id, branch_id, account_type } = req.body;
+        const [result] = await db.execute(
+            'INSERT INTO Accounts (customer_id, branch_id, account_type, status, open_date) VALUES (?, ?, ?, "Pending", CURDATE())',
+            [customer_id, branch_id, account_type]
+        );
+        res.status(201).json({ message: 'Account request submitted', account_id: result.insertId });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- Transaction APIs ---
 
 // 5. Deposit / Withdrawal / Transfer (Unified Handler)

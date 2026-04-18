@@ -29,7 +29,7 @@ router.post('/cards/issue', async (req, res) => {
         const expiryDate = `${expiryMonth}/${expiryYear}`;
 
         const [result] = await db.execute(
-            'INSERT INTO Cards (customer_id, account_id, card_number, expiry_date, cvv, type) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO Cards (customer_id, account_id, card_number, expiry_date, cvv, type, status) VALUES (?, ?, ?, ?, ?, ?, "Pending")',
             [customer_id, account_id, cardNumber, expiryDate, cvv, type || 'Debit']
         );
         res.status(201).json({ message: 'Card issued successfully', cardId: result.insertId });
