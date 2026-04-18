@@ -171,6 +171,21 @@ router.post('/transactions', async (req, res) => {
             [from_account_id || null, to_account_id || null, amount, type, description]
         );
 
+        // -- Generate Notification --
+        if (from_account_id) {
+            try {
+                const [accInfo] = await db.execute('SELECT customer_id FROM Accounts WHERE account_id = ?', [from_account_id]);
+                if (accInfo.length > 0) {
+                    const cId = accInfo[0].customer_id;
+                    const amountStr = `₹${parseFloat(amount).toLocaleString('en-IN')}`;
+                    await db.execute(
+                        'INSERT INTO Notifications (customer_id, title, message) VALUES (?, ?, ?)',
+                        [cId, `Transaction Alert: ${type}`, `Your recent ${type} of ${amountStr} was processed successfully.`]
+                    );
+                }
+            } catch (notifErr) { console.error('Notification Error:', notifErr); }
+        }
+
         res.status(201).json({ 
             message: 'Transaction processed successfully', 
             id: result.insertId 

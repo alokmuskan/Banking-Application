@@ -4,6 +4,8 @@ require('dotenv').config();
 
 const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
+const productRoutes = require('./routes/products');
+const supportRoutes = require('./routes/support');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -14,6 +16,8 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api', productRoutes);
+app.use('/api/support', supportRoutes);
 app.use('/api', apiRoutes);
 
 // Health Check

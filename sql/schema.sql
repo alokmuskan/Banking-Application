@@ -3,8 +3,12 @@ CREATE DATABASE IF NOT EXISTS BankingMS;
 USE BankingMS;
 
 -- Drop existing tables in reverse order of dependencies to avoid foreign key errors
+DROP TABLE IF EXISTS SupportTickets;
+DROP TABLE IF EXISTS Notifications;
+DROP TABLE IF EXISTS Cards;
 DROP TABLE IF EXISTS Transactions;
 DROP TABLE IF EXISTS Beneficiaries;
+DROP TABLE IF EXISTS Loans;
 DROP TABLE IF EXISTS Employees;
 DROP TABLE IF EXISTS Accounts;
 DROP TABLE IF EXISTS Customers;
@@ -82,7 +86,35 @@ CREATE TABLE Accounts (
     FOREIGN KEY (branch_id) REFERENCES Branches(branch_id) ON DELETE SET NULL
 );
 
--- 6. Transactions Table
+-- 6. Cards Table
+CREATE TABLE Cards (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    account_id INT NOT NULL,
+    card_number VARCHAR(16) UNIQUE NOT NULL,
+    expiry_date VARCHAR(5) NOT NULL,
+    cvv VARCHAR(3) NOT NULL,
+    type ENUM('Debit', 'Credit') DEFAULT 'Debit',
+    status ENUM('Active', 'Blocked', 'Frozen') DEFAULT 'Active',
+    issue_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE,
+    FOREIGN KEY (account_id) REFERENCES Accounts(account_id) ON DELETE CASCADE
+);
+
+-- 7. Loans Table
+CREATE TABLE Loans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    loan_type VARCHAR(50) NOT NULL,
+    principal DECIMAL(15,2) NOT NULL,
+    interest_rate DECIMAL(5,2) NOT NULL,
+    term_months INT NOT NULL,
+    status ENUM('Pending', 'Approved', 'Active', 'Settled') DEFAULT 'Pending',
+    application_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE
+);
+
+-- 8. Transactions Table
 CREATE TABLE Transactions (
     transaction_id INT AUTO_INCREMENT PRIMARY KEY,
     from_account_id INT,
@@ -95,7 +127,7 @@ CREATE TABLE Transactions (
     FOREIGN KEY (to_account_id) REFERENCES Accounts(account_id)
 );
 
--- 7. Employees Table
+-- 9. Employees Table
 CREATE TABLE Employees (
     employee_id INT AUTO_INCREMENT PRIMARY KEY,
     branch_id INT,
@@ -104,4 +136,27 @@ CREATE TABLE Employees (
     salary DECIMAL(10, 2),
     hire_date DATE,
     FOREIGN KEY (branch_id) REFERENCES Branches(branch_id)
+);
+
+-- 10. Notifications Table
+CREATE TABLE Notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE
+);
+
+-- 11. SupportTickets Table
+CREATE TABLE SupportTickets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    subject VARCHAR(100) NOT NULL,
+    category ENUM('Dispute', 'Lost Card', 'Account Issue', 'Other') NOT NULL,
+    description TEXT NOT NULL,
+    status ENUM('Open', 'In Progress', 'Resolved') DEFAULT 'Open',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE
 );
