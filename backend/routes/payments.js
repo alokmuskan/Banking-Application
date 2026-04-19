@@ -61,10 +61,16 @@ router.post('/verify', async (req, res) => {
         const type = 'Deposit';
         const description = `Razorpay UPI/Card Deposit (Txn ID: ${razorpay_payment_id})`;
 
-        // Transaction insert and automated trigger handles balance
+        // 1. Insert Transaction Log
         const [result] = await db.execute(
             'INSERT INTO Transactions (to_account_id, amount, type, description) VALUES (?, ?, ?, ?)',
             [account_id, amount, type, description]
+        );
+
+        // 2. Actually update the account balance!
+        await db.execute(
+            'UPDATE Accounts SET balance = balance + ? WHERE account_id = ?',
+            [parseFloat(amount), account_id]
         );
 
         res.json({ 
