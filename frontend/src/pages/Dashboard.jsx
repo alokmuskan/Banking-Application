@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, Landmark, TrendingUp, Eye, EyeOff } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Dashboard.css';
 
@@ -24,6 +24,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState({ customers: 0, accounts: 0, totalDeposits: 0, branches: 0 });
   const [customerBalance, setCustomerBalance] = useState(0);
   const [chartData, setChartData] = useState([]);
+  const [pieData, setPieData] = useState([]);
   const [hideBalance, setHideBalance] = useState(false);
 
   useEffect(() => {
@@ -48,8 +49,12 @@ const Dashboard = () => {
         setStats(prev => ({...prev, accounts: accs.data.length}));
 
         if(primaryAccId) {
-            const chartData = await axios.get(`http://localhost:5000/api/analytics/spending/${primaryAccId}`);
-            setChartData(chartData.data);
+            const [areaResp, pieResp] = await Promise.all([
+                axios.get(`http://localhost:5000/api/analytics/spending/${primaryAccId}`),
+                axios.get(`http://localhost:5000/api/analytics/distribution/${primaryAccId}`)
+            ]);
+            setChartData(areaResp.data);
+            setPieData(pieResp.data);
         }
       } catch (err) { console.error('Failed to fetch customer data:', err); }
     };
@@ -100,35 +105,65 @@ const Dashboard = () => {
       </section>
 
       {isCustomer ? (
-          <section className="glass" style={{ padding: '2rem', borderRadius: '1.5rem', marginTop: '2rem' }}>
-              <h3 style={{ marginBottom: '1.5rem' }}>Cashflow Analytics (Last 6 Months)</h3>
-              <div style={{ width: '100%', height: 300 }}>
-                {chartData.length > 0 ? (
-                    <ResponsiveContainer>
-                        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                                </linearGradient>
-                                <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <XAxis dataKey="name" stroke="var(--text-secondary)" />
-                            <YAxis stroke="var(--text-secondary)" />
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
-                            <Tooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px' }} />
-                            <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" />
-                            <Area type="monotone" dataKey="expense" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                ) : (
-                    <div style={{height: '100%', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-secondary)'}}>
-                        Not enough transaction data to build chart.
-                    </div>
-                )}
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
+              <div className="glass" style={{ padding: '2rem', borderRadius: '1.5rem' }}>
+                  <h3 style={{ marginBottom: '1.5rem' }}>Cashflow Analytics (Last 6 Months)</h3>
+                  <div style={{ width: '100%', height: 300 }}>
+                    {chartData.length > 0 ? (
+                        <ResponsiveContainer>
+                            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="name" stroke="var(--text-secondary)" />
+                                <YAxis stroke="var(--text-secondary)" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
+                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px' }} />
+                                <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" />
+                                <Area type="monotone" dataKey="expense" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div style={{height: '100%', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-secondary)'}}>
+                            Not enough transaction data to build chart.
+                        </div>
+                    )}
+                  </div>
+              </div>
+
+              <div className="glass" style={{ padding: '2rem', borderRadius: '1.5rem' }}>
+                  <h3 style={{ marginBottom: '1.5rem' }}>Transaction Distribution</h3>
+                  <div style={{ width: '100%', height: 300 }}>
+                    {pieData.length > 0 ? (
+                        <ResponsiveContainer>
+                            <PieChart>
+                                <Pie 
+                                    data={pieData} 
+                                    cx="50%" cy="50%" 
+                                    innerRadius={60} outerRadius={100} 
+                                    paddingAngle={5} dataKey="value"
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px' }} />
+                                <Legend verticalAlign="bottom" height={36}/>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div style={{height: '100%', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-secondary)'}}>
+                            No transactions recorded yet.
+                        </div>
+                    )}
+                  </div>
               </div>
           </section>
       ) : (

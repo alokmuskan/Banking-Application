@@ -11,6 +11,7 @@ import CardsPage from './pages/CardsPage';
 import LoansPage from './pages/LoansPage';
 import SupportPage from './pages/SupportPage';
 import ApprovalsPage from './pages/ApprovalsPage';
+import FixedDepositPage from './pages/FixedDepositPage';
 import AuthPage from './pages/AuthPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -32,6 +33,7 @@ function App() {
             <Route path="/transactions" element={<PrivateRoute><Layout><TransactionPage /></Layout></PrivateRoute>} />
             <Route path="/cards" element={<PrivateRoute><Layout><CardsPage /></Layout></PrivateRoute>} />
             <Route path="/loans" element={<PrivateRoute><Layout><LoansPage /></Layout></PrivateRoute>} />
+            <Route path="/fd" element={<PrivateRoute><Layout><FixedDepositPage /></Layout></PrivateRoute>} />
             <Route path="/support" element={<PrivateRoute><Layout><SupportPage /></Layout></PrivateRoute>} />
             <Route path="/statement" element={<PrivateRoute><Layout><StatementPage /></Layout></PrivateRoute>} />
           </Routes>

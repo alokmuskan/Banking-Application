@@ -8,6 +8,7 @@ const productRoutes = require('./routes/products');
 const supportRoutes = require('./routes/support');
 const adminRoutes = require('./routes/admin');
 const paymentRoutes = require('./routes/payments');
+const fdRoutes = require('./routes/fd');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ app.use('/api', productRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/fd', fdRoutes);
 app.use('/api', apiRoutes);
 
 // Health Check

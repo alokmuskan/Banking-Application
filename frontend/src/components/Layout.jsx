@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { LayoutDashboard, UserPlus, CreditCard, ArrowLeftRight, FileText, Landmark, LogOut, Wallet, PiggyBank, Bell, Headset, CheckCheck, ListChecks } from 'lucide-react';
+import { LayoutDashboard, UserPlus, CreditCard, ArrowLeftRight, FileText, Landmark, LogOut, Wallet, PiggyBank, Bell, Headset, CheckCheck, ListChecks, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/Layout.css';
 
@@ -84,6 +84,10 @@ const Layout = ({ children }) => {
           <NavLink to="/loans" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <PiggyBank size={20} />
             <span>Loans Center</span>
+          </NavLink>
+          <NavLink to="/fd" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+            <TrendingUp size={20} />
+            <span>Fixed Deposits</span>
           </NavLink>
           <NavLink to="/statement" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <FileText size={20} />

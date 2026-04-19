@@ -309,26 +309,67 @@ router.get('/analytics/spending/:accountId', async (req, res) => {
             ORDER BY year_num ASC, month_num ASC
         `, [accId, accId, accId, accId]);
 
-        const processedDataMap = new Map();
+        // PRE-FILL 6 months of empty data so graphs never break geometry
+        const monthsMap = new Map();
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const monthName = d.toLocaleString('en-US', { month: 'short' });
+            // Handle edge case of duplicate names if we cross year boundaries without year label
+            // For safety, just use 'MMM' as requested by chart.
+            if (!monthsMap.has(monthName)) {
+                 monthsMap.set(monthName, { name: monthName, income: 0, expense: 0 });
+            }
+        }
+
         preciseRows.forEach(row => {
             const key = `${row.month_name}`;
-            if (!processedDataMap.has(key)) {
-                processedDataMap.set(key, { name: key, income: 0, expense: 0 });
-            }
-            if (row.cashflow_type === 'income') {
-                processedDataMap.get(key).income += parseFloat(row.total);
-            } else if (row.cashflow_type === 'expense') {
-                processedDataMap.get(key).expense += parseFloat(row.total);
+            if (monthsMap.has(key)) {
+                if (row.cashflow_type === 'income') {
+                    monthsMap.get(key).income += parseFloat(row.total);
+                } else if (row.cashflow_type === 'expense') {
+                    monthsMap.get(key).expense += parseFloat(row.total);
+                }
             }
         });
 
-        res.json(Array.from(processedDataMap.values()));
+        res.json(Array.from(monthsMap.values()));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// 11. Get Branch List
+// 11. Get Transaction Classification for Pie Chart
+router.get('/analytics/distribution/:accountId', async (req, res) => {
+    try {
+        const accId = req.params.accountId;
+        const [rows] = await db.execute(`
+            SELECT type as name, SUM(amount) as value 
+            FROM Transactions 
+            WHERE from_account_id = ? OR to_account_id = ?
+            GROUP BY type
+        `, [accId, accId]);
+
+        // Default colors for charting based on type
+        const colors = {
+            'Deposit': '#10b981', // green
+            'Withdrawal': '#ef4444', // red
+            'Transfer': '#8b5cf6'  // purple
+        };
+
+        const chartData = rows.map(r => ({
+            name: r.name,
+            value: parseFloat(r.value),
+            color: colors[r.name] || '#3b82f6'
+        }));
+
+        res.json(chartData);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 12. Get Branch List
 router.get('/branches', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM Branches');
