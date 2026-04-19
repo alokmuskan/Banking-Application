@@ -17,19 +17,41 @@ const LoansPage = () => {
   const [tenureYears, setTenureYears] = useState(5);
   const [emi, setEmi] = useState(0);
 
-  const fetchData = async () => {
-    if (!user?.customerId) return;
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  
+  const fetchCustomerLoans = async (targetCustomerId) => {
     try {
-      const resp = await axios.get(`http://localhost:5000/api/loans/customer/${user.customerId}`);
+      const resp = await axios.get(`http://localhost:5000/api/loans/customer/${targetCustomerId}`);
       setLoans(resp.data);
     } catch (err) {
       console.error(err);
+      setLoans([]);
     }
   };
 
+  const fetchInitialData = async () => {
+    try {
+      if (user?.role === 'customer' && user?.customerId) {
+        fetchCustomerLoans(user.customerId);
+      } else {
+        const custResp = await axios.get('http://localhost:5000/api/customers');
+        setCustomers(custResp.data);
+      }
+    } catch (err) { console.error(err); }
+  };
+
   useEffect(() => {
-    fetchData();
+    fetchInitialData();
   }, [user]);
+
+  useEffect(() => {
+      if (selectedCustomerId) {
+          fetchCustomerLoans(selectedCustomerId);
+      } else if (user?.role !== 'customer') {
+          setLoans([]);
+      }
+  }, [selectedCustomerId]);
 
   // EMI Formula: E = P * r * (1 + r)^n / ((1 + r)^n - 1)
   // r = monthly interest rate
@@ -48,19 +70,25 @@ const LoansPage = () => {
   }, [loanAmount, interestRate, tenureYears]);
 
   const applyForLoan = async () => {
+      const targetUserId = user?.role === 'customer' ? user?.customerId : selectedCustomerId;
+      const directStatus = user?.role === 'customer' ? 'Pending' : 'Active';
+
+      if (!targetUserId) return addToast('Please select a customer first.', 'error');
+
       setLoading(true);
       try {
           await axios.post('http://localhost:5000/api/loans/apply', {
-              customer_id: user.customerId,
+              customer_id: targetUserId,
               loan_type: 'Personal Loan', // Simplification for now
               principal: loanAmount,
               interest_rate: interestRate,
-              term_months: tenureYears * 12
+              term_months: tenureYears * 12,
+              status: directStatus
           });
-          addToast('Loan Application Submitted! Pending Approval.', 'success');
-          fetchData();
+          addToast(`Loan ${directStatus === 'Active' ? 'Granted' : 'Application Submitted'} Successfully!`, 'success');
+          fetchCustomerLoans(targetUserId);
       } catch (err) {
-          addToast(err.response?.data?.error || 'Application Failed', 'error');
+          addToast(err.response?.data?.error || 'Failed to process loan', 'error');
       } finally {
           setLoading(false);
       }
@@ -69,9 +97,19 @@ const LoansPage = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h2>Loans Center</h2>
-        <p>Calculate EMIs and apply for personal loans instantly.</p>
+        <h2>{user?.role === 'customer' ? 'Loans Center' : 'Loan Origination Terminal'}</h2>
+        <p>{user?.role === 'customer' ? 'Calculate EMIs and apply for personal loans instantly.' : 'Configure loan terms and instantly grant credit to customers.'}</p>
       </div>
+
+      {user?.role !== 'customer' && (
+          <div className="glass" style={{padding: '1.5rem', borderRadius: '1rem', marginBottom: '2rem'}}>
+             <h3><FileCheck size={20} color="var(--accent)" style={{marginRight: '0.5rem'}}/> Select Target Customer</h3>
+             <select className="form-control" value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} style={{background: 'var(--bg-tertiary)', marginTop: '1rem', width: '100%', maxWidth: '400px'}}>
+                 <option value="">-- Select Customer --</option>
+                 {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} ({c.email})</option>)}
+             </select>
+          </div>
+      )}
 
       <div className="cards-grid">
         
@@ -127,15 +165,17 @@ const LoansPage = () => {
                 </div>
             </div>
             
-            <button className="btn-primary full-width" onClick={applyForLoan} disabled={loading} style={{marginTop: '1.5rem'}}>
-                {loading ? 'Submitting...' : 'Apply for this Loan'}
-            </button>
+            {((user?.role === 'customer') || (user?.role !== 'customer' && selectedCustomerId)) && (
+                <button className="btn-primary full-width" onClick={applyForLoan} disabled={loading} style={{marginTop: '1.5rem'}}>
+                    {loading ? 'Processing...' : (user?.role === 'customer' ? 'Apply for this Loan' : 'Grant this Loan')}
+                </button>
+            )}
         </div>
 
         {/* Existing Loans */}
         <div className="loans-list-container">
             <div className="card-header" style={{marginBottom: '1rem'}}>
-                <h3><History size={20} color="var(--text-secondary)" /> My Applications</h3>
+                <h3><History size={20} color="var(--text-secondary)" /> {user?.role === 'customer' ? 'My Applications' : 'Customer Loans'}</h3>
             </div>
             <div className="loans-list">
                 {loans.length > 0 ? loans.map(loan => (
@@ -165,7 +205,7 @@ const LoansPage = () => {
                 )) : (
                     <div className="no-data glass" style={{padding: '3rem'}}>
                         <PiggyBank size={48} color="var(--border)" style={{marginBottom: '1rem'}} />
-                        <p>You have no active loans or applications.</p>
+                        <p>{user?.role === 'customer' ? 'You have no active loans or applications.' : 'This customer has no loan portfolio.'}</p>
                     </div>
                 )}
             </div>

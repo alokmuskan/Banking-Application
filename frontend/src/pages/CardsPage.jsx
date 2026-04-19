@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { CreditCard, ShieldAlert, CheckCircle, Plus } from 'lucide-react';
+import { CreditCard, ShieldAlert, CheckCircle, Plus, Users } from 'lucide-react';
 import '../styles/Pages.css';
 
 const CardsPage = () => {
@@ -10,41 +10,78 @@ const CardsPage = () => {
   const { addToast } = useToast();
   const [cards, setCards] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  
   const [customerName, setCustomerName] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  
   const [loading, setLoading] = useState(false);
 
-  const fetchData = async () => {
-    if (!user?.customerId) return;
+  const fetchCustomerData = async (targetCustomerId) => {
     try {
-      const custResp = await axios.get('http://localhost:5000/api/customers');
-      const me = custResp.data.find(c => c.customer_id === user.customerId);
-      if(me) setCustomerName(me.name);
-
-      const accs = await axios.get(`http://localhost:5000/api/accounts/customer/${user.customerId}`);
+      const accs = await axios.get(`http://localhost:5000/api/accounts/customer/${targetCustomerId}`);
       setAccounts(accs.data);
+      if(accs.data.length > 0) setSelectedAccountId(accs.data[0].account_id);
 
-      const cardsResp = await axios.get(`http://localhost:5000/api/cards/customer/${user.customerId}`);
+      const cardsResp = await axios.get(`http://localhost:5000/api/cards/customer/${targetCustomerId}`);
       setCards(cardsResp.data);
+    } catch (err) {
+      console.error(err);
+      setAccounts([]);
+      setCards([]);
+    }
+  };
+
+  const fetchInitialData = async () => {
+    try {
+      if (user?.role === 'customer' && user?.customerId) {
+        const custResp = await axios.get('http://localhost:5000/api/customers');
+        const me = custResp.data.find(c => c.customer_id === user.customerId);
+        if(me) setCustomerName(me.name);
+        fetchCustomerData(user.customerId);
+      } else {
+        // Admin
+        const custResp = await axios.get('http://localhost:5000/api/customers');
+        setCustomers(custResp.data);
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchInitialData();
   }, [user]);
 
+  // Admin dropdown handler
+  useEffect(() => {
+      if (selectedCustomerId) {
+          fetchCustomerData(selectedCustomerId);
+          const c = customers.find(c => c.customer_id === parseInt(selectedCustomerId));
+          if(c) setCustomerName(c.name);
+      } else if (user?.role !== 'customer') {
+          setAccounts([]);
+          setCards([]);
+      }
+  }, [selectedCustomerId]);
+
   const issueCard = async (type) => {
-    if (accounts.length === 0) return addToast('No active accounts.', 'error');
+    const targetUserId = user?.role === 'customer' ? user?.customerId : selectedCustomerId;
+    const targetAccountId = user?.role === 'customer' ? accounts[0]?.account_id : selectedAccountId;
+    const directStatus = user?.role === 'customer' ? 'Pending' : 'Active';
+
+    if (!targetUserId || !targetAccountId) return addToast('Please select a customer and account.', 'error');
     setLoading(true);
     try {
         await axios.post('http://localhost:5000/api/cards/issue', {
-            customer_id: user.customerId,
-            account_id: accounts[0].account_id, // Default to first account
-            type: type
+            customer_id: targetUserId,
+            account_id: targetAccountId,
+            type: type,
+            status: directStatus // Admin bypass
         });
-        addToast(`${type} Card Issued Successfully!`, 'success');
-        fetchData();
+        addToast(`${type} Card ${directStatus === 'Active' ? 'Issued' : 'Requested'} Successfully!`, 'success');
+        fetchCustomerData(targetUserId);
     } catch(err) {
         addToast(err.response?.data?.error || 'Failed to issue card', 'error');
     } finally {
@@ -57,20 +94,37 @@ const CardsPage = () => {
       try {
           await axios.put(`http://localhost:5000/api/cards/${cardId}/status`, { status: newStatus });
           addToast(`Card ${newStatus}`, 'success');
-          fetchData();
+          const target = user?.role === 'customer' ? user?.customerId : selectedCustomerId;
+          if(target) fetchCustomerData(target);
       } catch(err) {
           addToast(err.response?.data?.error || 'Failed to update status', 'error');
       }
   };
 
-  const formatCardNum = (num) => num.match(/.{1,4}/g).join(' ');
+  const formatCardNum = (num) => num ? num.match(/.{1,4}/g).join(' ') : '';
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h2>Virtual Cards</h2>
-        <p>Manage your credit and debit cards securely.</p>
+        <h2>{user?.role === 'customer' ? 'Virtual Cards' : 'Card Issuance System'}</h2>
+        <p>{user?.role === 'customer' ? 'Manage your credit and debit cards securely.' : 'Directly issue cards to registered customers.'}</p>
       </div>
+
+      {user?.role !== 'customer' && (
+          <div className="glass" style={{padding: '1.5rem', borderRadius: '1rem', marginBottom: '2rem'}}>
+             <h3><Users size={20} color="var(--accent)" style={{marginRight: '0.5rem'}}/> Select Target Customer</h3>
+             <div style={{display: 'flex', gap: '1rem', marginTop: '1rem'}}>
+                 <select className="form-control" value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} style={{background: 'var(--bg-tertiary)', flex: 1}}>
+                     <option value="">-- Select Customer --</option>
+                     {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} ({c.email})</option>)}
+                 </select>
+                 <select className="form-control" value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)} style={{background: 'var(--bg-tertiary)', flex: 1}} disabled={!selectedCustomerId}>
+                     <option value="">-- Select Account --</option>
+                     {accounts.map(a => <option key={a.account_id} value={a.account_id}>{a.account_type} - #{a.account_id}</option>)}
+                 </select>
+             </div>
+          </div>
+      )}
 
       <div className="cards-grid">
         {/* Render Existing Cards */}
@@ -109,14 +163,15 @@ const CardsPage = () => {
                     <div className="status-indicator">
                         Status: <span className={`status-tag ${card.status.toLowerCase()}`}>{card.status}</span>
                     </div>
-                    {card.status === 'Pending' ? (
+                    {card.status === 'Pending' && user?.role === 'customer' ? (
                         <div style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Awaiting Admin Approval</div>
                     ) : (
                         <button 
                             onClick={() => toggleStatus(card.id, card.status)}
                             className={`action-btn ${card.status === 'Active' ? 'block-btn' : 'unblock-btn'}`}
+                            disabled={card.status === 'Pending'} // Prevent admin from freezing a pending card directly
                         >
-                            {card.status === 'Active' ? <><ShieldAlert size={16}/> Freeze Card</> : <><CheckCircle size={16}/> Unfreeze</>}
+                            {card.status === 'Active' ? <><ShieldAlert size={16}/> Freeze</> : <><CheckCircle size={16}/> Unfreeze</>}
                         </button>
                     )}
                 </div>
@@ -124,18 +179,21 @@ const CardsPage = () => {
         ))}
 
         {/* Issue New Card Interface */}
-        <div className="issue-card-panel glass">
-            <h3>Issue New Card</h3>
-            <p>Get instant access to a virtual card linked to your primary account.</p>
-            <div className="issue-actions">
-                <button className="btn-primary" onClick={() => issueCard('Debit')} disabled={loading}>
-                    <Plus size={18} /> Request Debit Card
-                </button>
-                <button className="btn-secondary" onClick={() => issueCard('Credit')} disabled={loading}>
-                    <Plus size={18} /> Apply for Credit Card
-                </button>
+        {/* {((user?.role === 'customer' && accounts.length > 0) || (user?.role !== 'customer' && selectedAccountId)) && ( */}
+        {((user?.role === 'customer') || (user?.role !== 'customer' && selectedAccountId)) && (
+            <div className="issue-card-panel glass">
+                <h3>{user?.role === 'customer' ? 'Issue New Card' : 'Issue Direct Card'}</h3>
+                <p>{user?.role === 'customer' ? 'Get instant access to a virtual card linked to your primary account.' : 'Instantly grant an active card to this customer.'}</p>
+                <div className="issue-actions">
+                    <button className="btn-primary" onClick={() => issueCard('Debit')} disabled={loading}>
+                        <Plus size={18} /> {user?.role === 'customer' ? 'Request' : 'Issue'} Debit Card
+                    </button>
+                    <button className="btn-secondary" onClick={() => issueCard('Credit')} disabled={loading}>
+                        <Plus size={18} /> {user?.role === 'customer' ? 'Apply for' : 'Issue'} Credit Card
+                    </button>
+                </div>
             </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ router.get('/cards/customer/:customerId', async (req, res) => {
 // 2. Issue New Card
 router.post('/cards/issue', async (req, res) => {
     try {
-        const { customer_id, account_id, type } = req.body;
+        const { customer_id, account_id, type, status } = req.body;
         
         // Generate Mock Card Data
         const cardNumber = Array.from({length: 16}, () => Math.floor(Math.random() * 10)).join('');
@@ -29,8 +29,8 @@ router.post('/cards/issue', async (req, res) => {
         const expiryDate = `${expiryMonth}/${expiryYear}`;
 
         const [result] = await db.execute(
-            'INSERT INTO Cards (customer_id, account_id, card_number, expiry_date, cvv, type, status) VALUES (?, ?, ?, ?, ?, ?, "Pending")',
-            [customer_id, account_id, cardNumber, expiryDate, cvv, type || 'Debit']
+            'INSERT INTO Cards (customer_id, account_id, card_number, expiry_date, cvv, type, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [customer_id, account_id, cardNumber, expiryDate, cvv, type || 'Debit', status || 'Pending']
         );
         res.status(201).json({ message: 'Card issued successfully', cardId: result.insertId });
     } catch (error) {
@@ -64,11 +64,11 @@ router.get('/loans/customer/:customerId', async (req, res) => {
 // 2. Apply for Loan
 router.post('/loans/apply', async (req, res) => {
     try {
-        const { customer_id, loan_type, principal, interest_rate, term_months } = req.body;
+        const { customer_id, loan_type, principal, interest_rate, term_months, status } = req.body;
 
         const [result] = await db.execute(
-            'INSERT INTO Loans (customer_id, loan_type, principal, interest_rate, term_months) VALUES (?, ?, ?, ?, ?)',
-            [customer_id, loan_type, principal, interest_rate, term_months]
+            'INSERT INTO Loans (customer_id, loan_type, principal, interest_rate, term_months, status) VALUES (?, ?, ?, ?, ?, ?)',
+            [customer_id, loan_type, principal, interest_rate, term_months, status || 'Pending']
         );
         res.status(201).json({ message: 'Loan application submitted successfully', loanId: result.insertId });
     } catch (error) {
