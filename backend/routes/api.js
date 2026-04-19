@@ -53,11 +53,11 @@ router.post('/customers', async (req, res) => {
                 kyc_document_type, kyc_document_no
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                name, email, phone, dob, 
-                perm_village, perm_district, perm_city, perm_state, perm_pincode,
-                temp_village, temp_district, temp_city, temp_state, temp_pincode,
-                gender, occupation, annual_income, nationality || 'Indian', 
-                kyc_document_type, kyc_document_no
+                name || null, email || null, phone || null, dob || null, 
+                perm_village || null, perm_district || null, perm_city || null, perm_state || null, perm_pincode || null,
+                temp_village || null, temp_district || null, temp_city || null, temp_state || null, temp_pincode || null,
+                gender || null, occupation || null, annual_income || null, nationality || 'Indian', 
+                kyc_document_type || null, kyc_document_no || null
             ]
         );
         res.status(201).json({ message: 'Customer created successfully', id: result.insertId });

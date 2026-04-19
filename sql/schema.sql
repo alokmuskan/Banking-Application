@@ -160,3 +160,12 @@ CREATE TABLE SupportTickets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES Customers(customer_id) ON DELETE CASCADE
 );
+
+-- ============================================
+-- 12. Insert Default Branches (Seed Data)
+-- ============================================
+INSERT INTO Branches (branch_name, city, address) VALUES 
+('Main Headquarters', 'Mumbai', 'Nariman Point, Mumbai, Maharashtra 400021'),
+('Jubilee Hills Branch', 'Hyderabad', 'Road No 36, Jubilee Hills, Telangana 500033'),
+('Connaught Place Branch', 'New Delhi', 'Inner Circle, CP, New Delhi 110001'),
+('Indiranagar Branch', 'Bengaluru', '100 Feet Road, Indiranagar, Karnataka 560038');

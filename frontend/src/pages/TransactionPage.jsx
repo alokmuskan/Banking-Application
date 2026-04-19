@@ -61,17 +61,63 @@ const TransactionPage = () => {
   const handleTransaction = async (e) => {
     e.preventDefault();
     setLoading(true);
-    try {
-      await axios.post('http://localhost:5000/api/transactions', {
-          ...formData, type: activeTab
-      });
-      addToast('Transaction Successful!', 'success');
-      setFormData({ ...formData, amount: '', description: '' });
-      fetchData();
-    } catch (err) {
-      addToast('Transaction Failed: ' + (err.response?.data?.error || err.message), 'error');
-    } finally {
-      setLoading(false);
+
+    if (activeTab === 'Deposit') {
+        try {
+            // 1. Create Order
+            const orderResp = await axios.post('http://localhost:5000/api/payments/create-order', {
+                amount: formData.amount
+            });
+
+            const options = {
+                key: 'rzp_test_SfPMCLlsyfOCxc', // Frontend key
+                amount: orderResp.data.amount,
+                currency: orderResp.data.currency,
+                name: "Banking Application",
+                description: "Deposit Funds",
+                order_id: orderResp.data.id,
+                handler: async function (response) {
+                    try {
+                        const verifyResp = await axios.post('http://localhost:5000/api/payments/verify', {
+                            ...response,
+                            account_id: formData.to_account_id,
+                            amount: formData.amount
+                        });
+                        addToast(verifyResp.data.message || 'Deposit Successful!', 'success');
+                        setFormData({ ...formData, amount: '', description: '' });
+                        fetchData();
+                    } catch (verifyErr) {
+                        addToast('Payment Verification Failed: ' + (verifyErr.response?.data?.error || verifyErr.message), 'error');
+                    }
+                },
+                theme: { color: "#3b82f6" }
+            };
+
+            const rzp = new window.Razorpay(options);
+            rzp.on('payment.failed', function (response) {
+                addToast('Payment Failed: ' + response.error.description, 'error');
+            });
+            rzp.open();
+
+        } catch (err) {
+            addToast('Deposit Gateway Error: ' + (err.response?.data?.error || err.message), 'error');
+        } finally {
+            setLoading(false);
+        }
+    } else {
+        // Normal Transfer/Withdraw flow
+        try {
+            await axios.post('http://localhost:5000/api/transactions', {
+                ...formData, type: activeTab
+            });
+            addToast('Transaction Successful!', 'success');
+            setFormData({ ...formData, amount: '', description: '' });
+            fetchData();
+        } catch (err) {
+            addToast('Transaction Failed: ' + (err.response?.data?.error || err.message), 'error');
+        } finally {
+            setLoading(false);
+        }
     }
   };
 

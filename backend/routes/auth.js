@@ -49,9 +49,14 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Invalid credentials' });
         }
 
-        // 3. Check if customer profile exists
-        const [customers] = await db.execute('SELECT * FROM Customers WHERE user_id = ?', [user.id]);
+        // 3. Check if customer profile exists by EMAIL (so Admin-created profiles can link up!)
+        const [customers] = await db.execute('SELECT * FROM Customers WHERE email = ?', [user.email]);
         const customerProfile = customers.length > 0 ? customers[0] : null;
+
+        // Auto-link the User ID to the Customer profile if the Admin created it without a user_id
+        if (customerProfile && !customerProfile.user_id) {
+            await db.execute('UPDATE Customers SET user_id = ? WHERE customer_id = ?', [user.id, customerProfile.customer_id]);
+        }
 
         // 4. Generate JWT
         const token = jwt.sign(

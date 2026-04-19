@@ -1,12 +1,13 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 
 const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const supportRoutes = require('./routes/support');
 const adminRoutes = require('./routes/admin');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,6 +21,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', productRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api', apiRoutes);
 
 // Health Check
