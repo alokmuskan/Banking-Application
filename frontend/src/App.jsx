@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import CustomerPage from './pages/CustomerPage';
@@ -18,7 +19,8 @@ import PrivateRoute from './components/PrivateRoute';
 
 function App() {
   return (
-    <AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
       <ToastProvider>
         <Router>
           <Routes>
@@ -38,7 +40,8 @@ function App() {
           </Routes>
         </Router>
       </ToastProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
