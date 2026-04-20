@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
   Landmark, CreditCard, TrendingUp, Users, ArrowDownCircle, ArrowUpCircle, Repeat,
-  Eye, EyeOff, ArrowUpRight
+  Eye, EyeOff, ArrowUpRight, ShieldAlert, Wifi, CheckCircle, Clock
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -20,6 +20,63 @@ const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digi
 
 const PIE_COLORS = { Deposit: '#2563EB', Withdrawal: '#DC2626', Transfer: '#8B5CF6' };
 
+// --- Dashboard Sub-components ---
+
+const VirtualCard = ({ card, accounts, hideBalance }) => {
+  const linkedAcc = accounts.find(a => a.account_id === card.account_id);
+  const cardGradient = (type, status) => {
+    if (status === 'Blocked' || status === 'Frozen') return 'from-slate-700 to-slate-900';
+    return type === 'Credit' ? 'from-purple-600 to-indigo-800' : 'from-blue-600 to-blue-800';
+  };
+
+  const maskCard = (num) => `•••• •••• •••• ${num.slice(-4)}`;
+
+  return (
+    <div className={`relative bg-gradient-to-br ${cardGradient(card.type, card.status)} rounded-xl p-5 text-white shadow-lg overflow-hidden h-44 flex flex-col justify-between`}>
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-widest opacity-60">Virtual {card.type}</span>
+          <span className="text-sm font-bold tracking-tight">NexusBank</span>
+        </div>
+        <Wifi size={16} className="opacity-40 rotate-90" />
+      </div>
+      
+      <div className="text-lg font-mono tracking-[0.2em] py-2">
+        {maskCard(card.card_number)}
+      </div>
+
+      <div className="flex justify-between items-end">
+        <div className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-widest opacity-60">Linked Balance</span>
+          <span className="text-sm font-semibold">{hideBalance ? '₹ ****' : formatINR(linkedAcc?.balance || 0)}</span>
+        </div>
+        <div className="flex -space-x-2">
+          <div className="w-6 h-6 rounded-full bg-red-500/80" />
+          <div className="w-6 h-6 rounded-full bg-amber-400/80" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ProductSummary = ({ label, value, status, icon: Icon, color, onClick }) => (
+  <button onClick={onClick} className="w-full bg-white border border-slate-100 rounded-xl p-4 flex items-center justify-between hover:shadow-card transition group text-left">
+    <div className="flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center bg-${color}-50 text-${color}-600`}>
+        <Icon size={18} />
+      </div>
+      <div>
+        <p className="text-xs text-slate-500">{label}</p>
+        <p className="text-sm font-semibold text-slate-900">{value}</p>
+      </div>
+    </div>
+    <div className="flex flex-col items-end gap-1">
+      <StatusBadge status={(status || 'active').toLowerCase()} size="sm" />
+      <span className="text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">Details →</span>
+    </div>
+  </button>
+);
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -32,6 +89,9 @@ const Dashboard = () => {
   const [pieData, setPieData] = useState([]);
   const [recentTx, setRecentTx] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [cards, setCards] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [fds, setFds] = useState([]);
 
   const isCustomer = user?.role === 'customer';
   const isAdmin = user?.role === 'admin' || user?.role === 'teller';
@@ -41,13 +101,20 @@ const Dashboard = () => {
       setLoading(true);
       try {
         if (isCustomer && user?.customerId) {
-          const [accsResp, txResp] = await Promise.all([
-            axios.get(`http://localhost:5000/api/accounts/customer/${user.customerId}`),
-            axios.get('http://localhost:5000/api/transactions/global/recent'),
+          const cid = user.customerId;
+          const [accsResp, txResp, cardsResp, loansResp, fdsResp] = await Promise.all([
+            axios.get(`http://localhost:5000/api/accounts/customer/${cid}`),
+            axios.get(`http://localhost:5000/api/transactions/customer/${cid}/recent`),
+            axios.get(`http://localhost:5000/api/cards/customer/${cid}`),
+            axios.get(`http://localhost:5000/api/loans/customer/${cid}`),
+            axios.get(`http://localhost:5000/api/fd/${cid}`),
           ]);
           setAccounts(accsResp.data);
           setCustomerBalance(accsResp.data.reduce((sum, a) => sum + parseFloat(a.balance), 0));
           setRecentTx(txResp.data.slice(0, 5));
+          setCards(cardsResp.data);
+          setLoans(loansResp.data);
+          setFds(fdsResp.data);
 
           if (accsResp.data.length > 0) {
             const accId = accsResp.data[0].account_id;
@@ -209,6 +276,50 @@ const Dashboard = () => {
                 <StatusBadge status="pending" />
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER PRODUCTS SUMMARY */}
+      {isCustomer && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Virtual Cards */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900">My Virtual Cards</h3>
+              <button onClick={() => navigate('/cards')} className="text-xs text-primary-600 hover:underline">Manage cards →</button>
+            </div>
+            {cards.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cards.slice(0, 2).map(card => (
+                  <VirtualCard key={card.id} card={card} accounts={accounts} hideBalance={hideBalance} />
+                ))}
+              </div>
+            ) : (
+                <div className="bg-white rounded-xl border border-slate-100 p-8 text-center border-dashed">
+                  <CreditCard className="mx-auto text-slate-200 mb-3" size={32} />
+                  <p className="text-sm text-slate-400">No active virtual cards</p>
+                  <button onClick={() => navigate('/cards')} className="text-xs text-primary-600 mt-2 font-medium">Issue a new card →</button>
+                </div>
+            )}
+          </div>
+
+          {/* Active Products (Loans/FDs) */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-slate-900">Active Products</h3>
+            <div className="space-y-3">
+              {loans.slice(0, 1).map(loan => (
+                <ProductSummary key={loan.id} label="Personal Loan" value={formatINR(loan.principal || loan.amount)} status={loan.status} icon={TrendingUp} color="blue" onClick={() => navigate('/loans')} />
+              ))}
+              {fds.slice(0, 1).map(fd => (
+                <ProductSummary key={fd.fd_id} label="Fixed Deposit" value={formatINR(fd.principal_amount)} status={fd.status || 'Active'} icon={Clock} color="emerald" onClick={() => navigate('/fd')} />
+              ))}
+              {loans.length === 0 && fds.length === 0 && (
+                <div className="bg-slate-50 rounded-xl p-6 text-center">
+                  <p className="text-xs text-slate-400 italic">No active loans or FDs found</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

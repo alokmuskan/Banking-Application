@@ -297,6 +297,23 @@ router.get('/transactions/global/recent', async (req, res) => {
     }
 });
 
+// 9.5 Get Recent Transactions for Customer
+router.get('/transactions/customer/:customerId/recent', async (req, res) => {
+    try {
+        const [rows] = await db.execute(`
+            SELECT DISTINCT t.* 
+            FROM Transactions t
+            JOIN Accounts a ON (t.from_account_id = a.account_id OR t.to_account_id = a.account_id)
+            WHERE a.customer_id = ?
+            ORDER BY t.timestamp DESC
+            LIMIT 20
+        `, [req.params.customerId]);
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // 10. Get Spending Analytics (Last 6 Months)
 router.get('/analytics/spending/:accountId', async (req, res) => {
     try {
