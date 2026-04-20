@@ -204,11 +204,20 @@ router.post('/transactions', async (req, res) => {
             }
 
             // Resolve the actual account_id from the Accounts table using payee_account_no
-            const [destAcc] = await db.execute('SELECT account_id FROM Accounts WHERE account_id = ?', [ben[0].payee_account_no]);
+            let targetAccId = parseInt(ben[0].payee_account_no, 10);
+            if (targetAccId > 10005000) {
+                targetAccId -= 10005000;
+            }
+            
+            const [destAcc] = await db.execute('SELECT account_id FROM Accounts WHERE account_id = ? OR account_id = ?', [ben[0].payee_account_no, targetAccId]);
             if (destAcc.length > 0) {
                 to_account_id = destAcc[0].account_id;
+            } else {
+                // If no matching account in DB (external bank), we must set it to null to avoid foreign key failure 
+                // and push details to the description
+                to_account_id = null;
+                description = `Transferred to ${ben[0].payee_name} (${ben[0].bank_name} - ${ben[0].payee_account_no}) ` + (description || '');
             }
-            // If no matching account in DB (external bank), to_account_id stays as payee_account_no
         }
 
         if (type === 'Withdrawal') {

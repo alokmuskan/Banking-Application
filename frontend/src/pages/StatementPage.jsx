@@ -28,20 +28,25 @@ const StatementPage = () => {
   useEffect(() => {
     const loadAccounts = async () => {
       try {
-        let custId = user?.customerId;
-        if (!custId && user?.email) {
-          const cResp = await axios.get('http://localhost:5000/api/customers');
-          const me = cResp.data.find(c => c.email === user.email);
-          if (me) custId = me.customer_id;
-        }
-        if (custId) {
-          const aResp = await axios.get(`http://localhost:5000/api/accounts/customer/${custId}`);
+        if (isCustomer) {
+          let custId = user?.customerId;
+          if (!custId && user?.email) {
+            const cResp = await axios.get('http://localhost:5000/api/customers');
+            const me = cResp.data.find(c => c.email === user.email);
+            if (me) custId = me.customer_id;
+          }
+          if (custId) {
+            const aResp = await axios.get(`http://localhost:5000/api/accounts/customer/${custId}`);
+            setAccounts(aResp.data);
+          }
+        } else {
+          const aResp = await axios.get('http://localhost:5000/api/accounts');
           setAccounts(aResp.data);
         }
       } catch {}
     };
     loadAccounts();
-  }, [user]);
+  }, [user, isCustomer]);
 
   const fetchHistory = async (accId) => {
     setLoading(true);
@@ -92,7 +97,7 @@ const StatementPage = () => {
         t.from_account_id || '—',
         t.to_account_id || '—',
         t.description || '—',
-        formatINR(t.amount),
+        `INR ${parseFloat(t.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
       ]),
       startY: 42,
       styles: { fontSize: 8 },
@@ -126,21 +131,21 @@ const StatementPage = () => {
       {/* Filters */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-card p-4 flex flex-wrap gap-3 items-center">
         {/* Account selector */}
-        <div className="flex flex-col gap-1 min-w-[200px]">
+        <div className="flex flex-col gap-1 w-full sm:w-auto min-w-[200px]">
           <label className="text-xs font-medium text-slate-500">Filter by account</label>
           <select value={selectedAccId} onChange={e => setSelectedAccId(e.target.value)}
             className="h-9 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500">
             <option value="">All transactions</option>
             {accounts.map(a => (
               <option key={a.account_id} value={a.account_id}>
-                Acc {a.account_id} — {a.account_type} ({formatINR(a.balance)})
+                Acc 1000{5000 + a.account_id} — {a.account_type}
               </option>
             ))}
           </select>
         </div>
 
         {/* Type filter */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <label className="text-xs font-medium text-slate-500">Transaction type</label>
           <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
             className="h-9 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500">
@@ -149,11 +154,11 @@ const StatementPage = () => {
         </div>
 
         {/* Search */}
-        <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+        <div className="flex flex-col gap-1 w-full sm:w-64">
           <label className="text-xs font-medium text-slate-500">Search</label>
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Type, description, account..." value={search} onChange={e => setSearch(e.target.value)}
+            <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
               className="h-9 pl-8 pr-3 w-full text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500" />
           </div>
         </div>

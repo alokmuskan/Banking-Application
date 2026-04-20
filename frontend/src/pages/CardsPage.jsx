@@ -141,9 +141,9 @@ const CardsPage = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cards list */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5 h-fit items-start">
           {cards.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-100 shadow-card flex flex-col items-center py-16 gap-3">
+            <div className="sm:col-span-2 bg-white rounded-xl border border-slate-100 shadow-card flex flex-col items-center py-16 gap-3">
               <CreditCard size={32} className="text-slate-200" />
               <p className="text-sm text-slate-400">No cards found</p>
             </div>
@@ -152,8 +152,8 @@ const CardsPage = () => {
             return (
               <div key={card.id} className="bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden">
                 {/* ── Realistic card ── */}
-                <div className={`relative bg-gradient-to-br ${cardGradient(card.type, card.status)} p-6 mx-0`}
-                  style={{ minHeight: '180px', maxWidth: '380px' }}>
+                <div className={`relative bg-gradient-to-br ${cardGradient(card.type, card.status)} p-5 mx-0 w-full flex flex-col justify-between`}
+                  style={{ minHeight: '180px', aspectRatio: '1.58/1' }}>
 
                   {/* Frozen overlay */}
                   {card.status === 'Blocked' && (

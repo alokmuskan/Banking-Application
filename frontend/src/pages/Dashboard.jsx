@@ -108,7 +108,7 @@ const Dashboard = () => {
           className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-2 transition"
         >
           {hideBalance ? <EyeOff size={14} /> : <Eye size={14} />}
-          {hideBalance ? 'Show' : 'Hide'} balances
+          {hideBalance ? 'Show' : 'Hide'}
         </button>
       </PageHeader>
 
@@ -123,10 +123,10 @@ const Dashboard = () => {
           </>
         ) : (
           <>
-            <StatCard label="Total customers" value={stats.customers} icon={Users} colorScheme="blue" />
-            <StatCard label="Total accounts" value={stats.accounts} icon={CreditCard} colorScheme="green" />
-            <StatCard label="Total deposits" value={formatINR(stats.totalDeposits)} icon={Landmark} colorScheme="purple" />
-            <StatCard label="Bank branches" value={stats.branches} icon={Landmark} colorScheme="amber" />
+            <StatCard label="Total customers" value={hideBalance ? '*' : stats.customers} icon={Users} colorScheme="blue" />
+            <StatCard label="Total accounts" value={hideBalance ? '*' : stats.accounts} icon={CreditCard} colorScheme="green" />
+            <StatCard label="Total deposits" value={masked(stats.totalDeposits)} icon={Landmark} colorScheme="purple" />
+            <StatCard label="Bank branches" value={hideBalance ? '*' : stats.branches} icon={Landmark} colorScheme="amber" />
           </>
         )}
       </div>
