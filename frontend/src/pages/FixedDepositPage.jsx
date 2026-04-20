@@ -22,7 +22,11 @@ const FixedDepositPage = () => {
   const { addToast } = useToast();
   const [accounts, setAccounts] = useState([]);
   const [fds, setFds] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  const isCustomer = user?.role === 'customer';
 
   const [form, setForm] = useState({
     linked_account_id: '',
@@ -33,29 +37,43 @@ const FixedDepositPage = () => {
 
   const selectedPlan = FD_PLANS.find(p => p.months === parseInt(form.duration_months)) || FD_PLANS[1];
 
-  const fetchData = async () => {
+  const fetchData = async (targetCustomerId) => {
     try {
-      let custId = user?.customerId;
-
-      // If customerId not in JWT, look up by email
-      if (!custId && user?.email) {
-        const custResp = await axios.get('http://localhost:5000/api/customers');
-        const me = custResp.data.find(c => c.email === user.email);
-        if (me) custId = me.customer_id;
-      }
-
-      if (!custId) return;
-
+      if (!targetCustomerId) return;
       const [accsResp, fdResp] = await Promise.all([
-        axios.get(`http://localhost:5000/api/accounts/customer/${custId}`),
-        axios.get(`http://localhost:5000/api/fd/${custId}`),
+        axios.get(`http://localhost:5000/api/accounts/customer/${targetCustomerId}`),
+        axios.get(`http://localhost:5000/api/fd/${targetCustomerId}`),
       ]);
       setAccounts(accsResp.data);
       setFds(fdResp.data);
     } catch (err) { console.error(err); }
   };
 
-  useEffect(() => { fetchData(); }, [user]);
+  useEffect(() => {
+    const init = async () => {
+      if (!isCustomer) {
+        const resp = await axios.get('http://localhost:5000/api/customers');
+        setCustomers(resp.data);
+      } else {
+        let custId = user?.customerId;
+        if (!custId && user?.email) {
+          const custResp = await axios.get('http://localhost:5000/api/customers');
+          const me = custResp.data.find(c => c.email === user.email);
+          if (me) custId = me.customer_id;
+        }
+        if (custId) fetchData(custId);
+      }
+    };
+    init();
+  }, [user]);
+
+  useEffect(() => {
+    if (!isCustomer && selectedCustomerId) {
+      fetchData(selectedCustomerId);
+    } else if (!isCustomer && !selectedCustomerId) {
+      setAccounts([]); setFds([]);
+    }
+  }, [selectedCustomerId]);
 
   const calculateMaturity = () => {
     const P = parseFloat(form.principal_amount) || 0;
@@ -71,17 +89,18 @@ const FixedDepositPage = () => {
     if (!form.linked_account_id) { addToast('Please select a source account', 'error'); return; }
     setLoading(true);
     try {
-      let custId = user?.customerId;
-      if (!custId && user?.email) {
+      let custId = isCustomer ? user?.customerId : selectedCustomerId;
+      if (isCustomer && !custId && user?.email) {
         const custResp = await axios.get('http://localhost:5000/api/customers');
         const me = custResp.data.find(c => c.email === user.email);
         if (me) custId = me.customer_id;
       }
-      if (!custId) { addToast('Customer profile not found', 'error'); return; }
+      if (!custId) { addToast(isCustomer ? 'Customer profile not found' : 'Please select a customer first', 'error'); return; }
+      
       await axios.post('http://localhost:5000/api/fd/book', { ...form, customer_id: custId });
       addToast('Fixed deposit booked successfully!', 'success');
       setForm(p => ({ ...p, principal_amount: '', linked_account_id: '' }));
-      fetchData();
+      fetchData(custId);
     } catch (err) {
       addToast(err.response?.data?.error || 'Failed to book FD', 'error');
     } finally { setLoading(false); }
@@ -97,12 +116,24 @@ const FixedDepositPage = () => {
           <h3 className="text-sm font-semibold text-slate-900">Open new fixed deposit</h3>
 
           <form onSubmit={handleBook} className="space-y-4">
+            {/* Customer selector (admin only) */}
+            {!isCustomer && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">Select customer *</label>
+                <select required value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 bg-white">
+                  <option value="">— Select customer —</option>
+                  {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} ({c.email})</option>)}
+                </select>
+              </div>
+            )}
+
             {/* Account selector */}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-slate-700">Source account</label>
-              <select required value={form.linked_account_id} onChange={e => setForm(p => ({...p, linked_account_id: e.target.value}))}
-                className="h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500">
-                <option value="">Select account</option>
+              <select required value={form.linked_account_id || ''} onChange={e => setForm(p => ({...p, linked_account_id: e.target.value}))}
+                className="h-10 w-full px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500">
+                <option value="" disabled>— Select account —</option>
                 {accounts.map(a => (
                   <option key={a.account_id} value={a.account_id}>
                     Acc 1000{5000 + a.account_id} — {formatINR(a.balance)}

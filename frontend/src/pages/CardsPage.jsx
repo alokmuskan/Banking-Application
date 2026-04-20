@@ -101,7 +101,8 @@ const CardsPage = () => {
   };
 
   const toggleStatus = async (cardId, current) => {
-    const newStatus = current === 'Active' ? 'Blocked' : 'Active';
+    const isCurrentlyActive = String(current || '').toLowerCase() === 'active';
+    const newStatus = isCurrentlyActive ? 'Blocked' : 'Active';
     try {
       await axios.put(`http://localhost:5000/api/cards/${cardId}/status`, { status: newStatus });
       addToast(`Card ${newStatus === 'Blocked' ? 'frozen' : 'unfrozen'}`, 'success');
@@ -157,11 +158,45 @@ const CardsPage = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Issue new card panel */}
+        <div className="space-y-6">
+          {(isCustomer || (!isCustomer && selectedAccountId)) ? (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-card p-6 space-y-5">
+              <h3 className="text-sm font-semibold text-slate-900 mb-1">
+                {isCustomer ? 'Request a new card' : 'Issue card directly'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {isCustomer
+                  ? 'Your request goes to admin for approval before activation.'
+                  : 'Card will be immediately active for the customer.'}
+              </p>
+              <div className="space-y-3 pt-2">
+                <Button variant="primary" className="w-full" icon={Plus} onClick={() => issueCard('Debit')} loading={loading}>
+                  {isCustomer ? 'Request' : 'Issue'} Debit Card
+                </Button>
+                <Button variant="outlined" className="w-full" icon={Plus} onClick={() => issueCard('Credit')} loading={loading}>
+                  {isCustomer ? 'Apply for' : 'Issue'} Credit Card
+                </Button>
+              </div>
+              {isCustomer && (
+                <p className="text-[11px] text-slate-400 pt-3 border-t border-slate-100">
+                  🔒 Card details are hidden by default for security. Use the "Show details" button to reveal.
+                </p>
+              )}
+            </div>
+          ) : (
+            /* Placeholder for Admin to maintain layout grid when no account is selected */
+            <div className="bg-slate-50 border border-slate-100 border-dashed rounded-xl p-6 text-center">
+              <p className="text-sm text-slate-500">Select a customer and an account to issue new cards.</p>
+            </div>
+          )}
+        </div>
+
         {/* Cards list */}
-        <div className="lg:col-span-2 flex flex-col items-center space-y-6">
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-5">
           {cards.length === 0 ? (
-            <div className="w-full bg-white rounded-xl border border-slate-100 shadow-card flex flex-col items-center py-16 gap-3">
+            <div className="md:col-span-2 bg-white rounded-xl border border-slate-100 shadow-card flex flex-col items-center py-16 gap-3">
               <CreditCard size={32} className="text-slate-200" />
               <p className="text-sm text-slate-400">No cards found</p>
             </div>
@@ -172,7 +207,7 @@ const CardsPage = () => {
               : (customerName || 'NEXUS CUSTOMER');
 
             return (
-              <div key={card.id} className="bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden w-full max-w-[360px]">
+              <div key={card.id} className="bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden w-full max-w-[360px] mx-auto">
                 {/* ── Realistic card ── */}
                 <div className={`relative bg-gradient-to-br ${cardGradient(card.type, card.status)} p-6 mx-0 w-full flex flex-col justify-between`}
                   style={{ minHeight: '210px' }}>
@@ -274,33 +309,6 @@ const CardsPage = () => {
             );
           })}
         </div>
-
-        {/* Issue new card panel */}
-        {(isCustomer || (!isCustomer && selectedAccountId)) && (
-          <div className="bg-white rounded-xl border border-slate-100 shadow-card p-6 space-y-5 h-fit">
-            <h3 className="text-sm font-semibold text-slate-900">
-              {isCustomer ? 'Request a new card' : 'Issue card directly'}
-            </h3>
-            <p className="text-xs text-slate-400">
-              {isCustomer
-                ? 'Your request goes to admin for approval before activation.'
-                : 'Card will be immediately active for the customer.'}
-            </p>
-            <div className="space-y-3 pt-1">
-              <Button variant="primary" className="w-full" icon={Plus} onClick={() => issueCard('Debit')} loading={loading}>
-                {isCustomer ? 'Request' : 'Issue'} Debit Card
-              </Button>
-              <Button variant="outlined" className="w-full" icon={Plus} onClick={() => issueCard('Credit')} loading={loading}>
-                {isCustomer ? 'Apply for' : 'Issue'} Credit Card
-              </Button>
-            </div>
-            {isCustomer && (
-              <p className="text-[11px] text-slate-400 pt-2 border-t border-slate-100">
-                🔒 Card details are hidden by default for security. Use the "Show details" button to reveal.
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

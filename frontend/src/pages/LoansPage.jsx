@@ -18,7 +18,7 @@ const LoansPage = () => {
   const [customers, setCustomers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
 
-  const [calc, setCalc] = useState({ amount: 500000, rate: 8.5, tenure: 5 });
+  const [calc, setCalc] = useState({ amount: 500000, rate: 8.5, tenure: 5, loan_type: 'Personal Loan' });
 
   const isCustomer = user?.role === 'customer';
 
@@ -62,7 +62,7 @@ const LoansPage = () => {
     try {
       await axios.post('http://localhost:5000/api/loans/apply', {
         customer_id: targetId,
-        loan_type: 'Personal Loan',
+        loan_type: calc.loan_type,
         amount: calc.amount,
         interest_rate: calc.rate,
         tenure_months: calc.tenure * 12,
@@ -95,6 +95,16 @@ const LoansPage = () => {
           <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><Calculator size={16} className="text-primary-600" /> EMI calculator</h3>
 
           <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-1">Loan type *</label>
+              <select required value={calc.loan_type} onChange={e => setCalc({...calc, loan_type: e.target.value})}
+                className="h-10 w-full px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 bg-white">
+                {['Personal Loan', 'Home Loan', 'Auto Loan', 'Education Loan', 'Business Loan'].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="text-sm font-medium text-slate-700 flex justify-between mb-1">
                 Loan amount <span className="text-primary-600 font-semibold">{formatINR(calc.amount)}</span>
@@ -173,7 +183,7 @@ const LoansPage = () => {
                       {[
                         ['Amount', formatINR(loan.amount)],
                         ['Interest', `${loan.interest_rate}% p.a.`],
-                        ['Tenure', `${loan.tenure_months} mo.`],
+                        ['Tenure', `${loan.term_months || loan.tenure_months || 0} mo.`],
                       ].map(([label, value]) => (
                         <div key={label}>
                           <p className="text-xs text-slate-400">{label}</p>
