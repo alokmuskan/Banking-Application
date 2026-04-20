@@ -1,135 +1,147 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Plus, MapPin, Phone, Clock, Headset } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Headset, Send, MessageCircle, AlertCircle } from 'lucide-react';
-import '../styles/Pages.css';
+import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+import StatusBadge from '../components/StatusBadge';
+import FormInput from '../components/FormInput';
 
 const SupportPage = () => {
-    const { user } = useAuth();
-    const { addToast } = useToast();
-    const [tickets, setTickets] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        subject: '', category: 'Account Issue', description: ''
-    });
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const [tickets, setTickets] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-    const fetchTickets = async () => {
-        if (!user?.customerId) return;
-        try {
-            const resp = await axios.get(`http://localhost:5000/api/support/tickets/${user.customerId}`);
-            setTickets(resp.data);
-        } catch (err) {
-            console.error(err);
-        }
-    };
+  const [form, setForm] = useState({ subject: '', category: 'Account Issue', description: '' });
+  const up = (k, v) => setForm(p => ({...p, [k]: v}));
 
-    useEffect(() => {
-        fetchTickets();
-    }, [user]);
+  const fetchData = async () => {
+    try {
+      const [branchResp] = await Promise.all([
+        axios.get('http://localhost:5000/api/branches'),
+      ]);
+      setBranches(branchResp.data);
+      if (user?.customerId) {
+        const txResp = await axios.get(`http://localhost:5000/api/support/tickets/${user.customerId}`).catch(() => ({ data: [] }));
+        setTickets(txResp.data);
+      }
+    } catch (err) { console.error(err); }
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            await axios.post('http://localhost:5000/api/support/tickets', {
-                customer_id: user.customerId,
-                ...formData
-            });
-            addToast('Support Ticket Submitted Successfully!', 'success');
-            setFormData({ subject: '', category: 'Account Issue', description: '' });
-            fetchTickets();
-        } catch (err) {
-            addToast(err.response?.data?.error || 'Failed to submit ticket', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
+  useEffect(() => { fetchData(); }, [user]);
 
-    return (
-        <div className="page-container">
-            <div className="page-header">
-                <h2>Customer Support</h2>
-                <p>We're here to help. Submit a dispute or technical issue.</p>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user?.customerId) return addToast('No customer profile found.', 'error');
+    setLoading(true);
+    try {
+      await axios.post('http://localhost:5000/api/support/tickets', { ...form, customer_id: user.customerId });
+      addToast('Support ticket submitted!', 'success');
+      setShowForm(false);
+      setForm({ subject: '', category: 'Account Issue', description: '' });
+      fetchData();
+    } catch (err) { addToast('Failed: ' + (err.response?.data?.error || err.message), 'error'); }
+    finally { setLoading(false); }
+  };
+
+  const CATEGORIES = ['Account Issue', 'Dispute', 'Lost Card', 'Other'];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Support center" subtitle="Get help with your banking needs.">
+        {user?.role === 'customer' && (
+          <Button icon={Plus} onClick={() => setShowForm(!showForm)} variant={showForm ? 'outlined' : 'primary'}>
+            {showForm ? 'Cancel' : 'New ticket'}
+          </Button>
+        )}
+      </PageHeader>
+
+      {/* NEW TICKET FORM */}
+      {showForm && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-card p-6">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">Submit a support request</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormInput label="Subject *" placeholder="Brief description" required value={form.subject} onChange={e => up('subject', e.target.value)} />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-slate-700">Category</label>
+                <select value={form.category} onChange={e => up('category', e.target.value)}
+                  className="h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500">
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
             </div>
-
-            <div className="support-grid">
-                
-                {/* Submit Form */}
-                <div className="glass form-card">
-                    <div className="card-header" style={{ marginBottom: '1.5rem' }}>
-                        <h3><Headset size={20} color="var(--accent)" /> Create Ticket</h3>
-                    </div>
-                    
-                    <form onSubmit={handleSubmit} className="auth-form" style={{ gap: '1rem' }}>
-                        <div className="input-group">
-                            <label>Category</label>
-                            <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required style={{background: 'var(--bg-tertiary)'}}>
-                                <option value="Account Issue">Account Issue</option>
-                                <option value="Dispute">Transaction Dispute</option>
-                                <option value="Lost Card">Lost / Stolen Card</option>
-                                <option value="Other">Other Query</option>
-                            </select>
-                        </div>
-
-                        <div className="input-group">
-                            <label>Subject</label>
-                            <input type="text" placeholder="Brief subject" required value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} style={{background: 'var(--bg-tertiary)'}} />
-                        </div>
-
-                        <div className="input-group">
-                            <label>Description</label>
-                            <textarea 
-                                placeholder="Please describe the issue in detail..." 
-                                required rows="5"
-                                value={formData.description} 
-                                onChange={e => setFormData({...formData, description: e.target.value})}
-                                style={{background: 'var(--bg-tertiary)', width: '100%', padding: '1rem', borderRadius: '0.75rem', border: '1px solid var(--border)', color: 'var(--text-primary)', resize: 'vertical'}}
-                            ></textarea>
-                        </div>
-
-                        <button type="submit" className="btn-primary full-width" disabled={loading} style={{marginTop: '0.5rem'}}>
-                            {loading ? 'Submitting...' : <><Send size={16}/> Submit Ticket</>}
-                        </button>
-                    </form>
-                </div>
-
-                {/* Ticket History */}
-                <div className="tickets-list">
-                    <div className="card-header" style={{ marginBottom: '1.5rem' }}>
-                        <h3><MessageCircle size={20} color="var(--text-secondary)" /> My Tickets</h3>
-                    </div>
-
-                    <div className="tickets-container">
-                        {tickets.length > 0 ? tickets.map(ticket => (
-                            <div key={ticket.id} className="ticket-card glass">
-                                <div className="ticket-header">
-                                    <div className="ticket-title">
-                                        <span className="ticket-id">#{ticket.id}</span>
-                                        <strong>{ticket.subject}</strong>
-                                    </div>
-                                    <span className={`status-tag ${ticket.status.toLowerCase().replace(' ', '-')}`}>{ticket.status}</span>
-                                </div>
-                                <div className="ticket-body">
-                                    <p>{ticket.description}</p>
-                                </div>
-                                <div className="ticket-footer">
-                                    <span className="ticket-category">{ticket.category}</span>
-                                    <span className="ticket-date">{new Date(ticket.created_at).toLocaleString()}</span>
-                                </div>
-                            </div>
-                        )) : (
-                            <div className="no-data glass" style={{padding: '3rem'}}>
-                                <AlertCircle size={48} color="var(--border)" style={{marginBottom: '1rem'}} />
-                                <p>You have no open support tickets.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-slate-700">Description *</label>
+              <textarea required rows={4} placeholder="Describe your issue in detail..."  value={form.description} onChange={e => up('description', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 resize-none" />
             </div>
+            <Button type="submit" loading={loading}>Submit ticket</Button>
+          </form>
         </div>
-    );
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* TICKETS */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-900">My tickets</h3>
+          </div>
+          <div className="divide-y divide-slate-50 max-h-96 overflow-y-auto">
+            {tickets.length > 0 ? tickets.map(t => (
+              <div key={t.id} onClick={() => setSelectedTicket(selectedTicket?.id === t.id ? null : t)}
+                className={`px-5 py-4 cursor-pointer hover:bg-slate-50 transition-colors ${selectedTicket?.id === t.id ? 'bg-blue-50' : ''}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{t.subject}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{t.category} · {new Date(t.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}</p>
+                  </div>
+                  <StatusBadge status={(t.status || 'open').toLowerCase()} size="sm" />
+                </div>
+                {selectedTicket?.id === t.id && (
+                  <p className="text-sm text-slate-600 mt-3 pt-3 border-t border-blue-100">{t.description}</p>
+                )}
+              </div>
+            )) : (
+              <div className="flex flex-col items-center py-12 gap-2">
+                <Headset size={28} className="text-slate-200" />
+                <p className="text-sm text-slate-400">No tickets filed yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* BRANCHES */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-slate-900">Branch locator</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {branches.map(b => (
+              <div key={b.branch_id} className="bg-white rounded-xl border border-slate-100 shadow-card p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{b.branch_name}</p>
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-500">
+                      <MapPin size={11} />
+                      <span>{b.address}, {b.city}</span>
+                    </div>
+                  </div>
+                  <span className="bg-emerald-50 text-emerald-700 text-xs font-medium px-2 py-1 rounded-full">Open</span>
+                </div>
+                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-50">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400"><Clock size={11} />Mon–Sat, 9am–5pm</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default SupportPage;

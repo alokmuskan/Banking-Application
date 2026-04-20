@@ -15,7 +15,6 @@ import FixedDepositPage from './pages/FixedDepositPage';
 import AuthPage from './pages/AuthPage';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
-import './styles/global.css';
 
 function App() {
   return (

@@ -1,148 +1,127 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { CheckCircle, XCircle, FileText, CreditCard, Landmark, PiggyBank } from 'lucide-react';
+import { CheckCircle, XCircle, ClipboardList } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
-import '../styles/Pages.css';
+import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+import StatusBadge from '../components/StatusBadge';
 
 const ApprovalsPage = () => {
-    const { addToast } = useToast();
-    const [pendingData, setPendingData] = useState({ accounts: [], cards: [], loans: [] });
-    const [loading, setLoading] = useState(false);
+  const { addToast } = useToast();
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState('');
+  const [activeTab, setActiveTab] = useState('Pending');
 
-    const fetchApprovals = async () => {
-        try {
-            const resp = await axios.get('http://localhost:5000/api/admin/approvals');
-            setPendingData(resp.data);
-        } catch (err) {
-            console.error('Fetch approvals err:', err);
-        }
-    };
+  const fetchData = async () => {
+    try {
+      const resp = await axios.get('http://localhost:5000/api/admin/requests');
+      setRequests(resp.data);
+    } catch { }
+  };
 
-    useEffect(() => {
-        fetchApprovals();
-    }, []);
+  useEffect(() => { fetchData(); }, []);
 
-    const handleAction = async (type, id, newStatus) => {
-        setLoading(true);
-        try {
-            await axios.put(`http://localhost:5000/api/admin/approvals/${type}/${id}`, { status: newStatus });
-            addToast(`${type.charAt(0).toUpperCase() + type.slice(1)} ${newStatus} Successfully`, 'success');
-            fetchApprovals();
-        } catch(err) {
-            addToast(`Failed: ${err.message}`, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleAction = async (id, type, action) => {
+    setLoading(`${id}-${action}`);
+    try {
+      await axios.put(`http://localhost:5000/api/admin/requests/${id}/status`, { status: action === 'approve' ? 'Active' : 'Rejected', type });
+      addToast(`Request ${action === 'approve' ? 'approved' : 'rejected'} successfully`, 'success');
+      fetchData();
+    } catch (err) { addToast(err.response?.data?.error || 'Action failed', 'error'); }
+    finally { setLoading(''); }
+  };
 
-    return (
-        <div className="page-container">
-            <div className="page-header">
-                <h2>Approvals Center</h2>
-                <p>Manage pending customer requests for accounts, cards, and loans.</p>
-            </div>
+  const filtered = requests.filter(r => {
+    const s = (r.status || '').toLowerCase();
+    if (activeTab === 'Pending') return s === 'pending';
+    if (activeTab === 'Approved') return s === 'active' || s === 'approved';
+    if (activeTab === 'Rejected') return s === 'rejected';
+    return true;
+  });
 
-            <div style={{display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '2rem'}}>
-                
-                {/* Accounts Approvals */}
-                <div className="glass" style={{padding: '1.5rem', borderRadius: '1rem'}}>
-                    <h3><Landmark size={20} color="var(--accent)" style={{marginRight: '0.5rem'}}/> Pending Account Requests</h3>
-                    <table className="data-table" style={{marginTop: '1rem'}}>
-                        <thead>
-                            <tr>
-                                <th>Request ID</th>
-                                <th>Customer Name</th>
-                                <th>Type</th>
-                                <th>Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {pendingData.accounts.length > 0 ? pendingData.accounts.map(acc => (
-                                <tr key={acc.account_id}>
-                                    <td>#{acc.account_id}</td>
-                                    <td>{acc.customer_name}</td>
-                                    <td>{acc.account_type}</td>
-                                    <td>{new Date(acc.open_date).toLocaleDateString()}</td>
-                                    <td>
-                                        <div style={{display: 'flex', gap: '0.5rem'}}>
-                                            <button className="btn-primary" disabled={loading} style={{padding: '0.4rem 0.8rem'}} onClick={() => handleAction('account', acc.account_id, 'Active')}><CheckCircle size={16}/> Approve</button>
-                                            <button className="btn-secondary" disabled={loading} style={{padding: '0.4rem 0.8rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444'}} onClick={() => handleAction('account', acc.account_id, 'Rejected')}><XCircle size={16}/> Reject</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )) : <tr><td colSpan="5" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)'}}>No pending accounts.</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
+  const pendingCount = requests.filter(r => (r.status || '').toLowerCase() === 'pending').length;
 
-                {/* Cards Approvals */}
-                <div className="glass" style={{padding: '1.5rem', borderRadius: '1rem'}}>
-                    <h3><CreditCard size={20} color="var(--accent)" style={{marginRight: '0.5rem'}}/> Pending Virtual Cards</h3>
-                    <table className="data-table" style={{marginTop: '1rem'}}>
-                        <thead>
-                            <tr>
-                                <th>Req ID</th>
-                                <th>Customer</th>
-                                <th>Card Type</th>
-                                <th>Req Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {pendingData.cards.length > 0 ? pendingData.cards.map(card => (
-                                <tr key={card.id}>
-                                    <td>#{card.id}</td>
-                                    <td>{card.customer_name}</td>
-                                    <td>{card.type}</td>
-                                    <td>{new Date(card.issue_date).toLocaleDateString()}</td>
-                                    <td>
-                                        <div style={{display: 'flex', gap: '0.5rem'}}>
-                                            <button className="btn-primary" disabled={loading} style={{padding: '0.4rem 0.8rem'}} onClick={() => handleAction('card', card.id, 'Active')}><CheckCircle size={16}/> Approve</button>
-                                            <button className="btn-secondary" disabled={loading} style={{padding: '0.4rem 0.8rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444'}} onClick={() => handleAction('card', card.id, 'Rejected')}><XCircle size={16}/> Reject</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )) : <tr><td colSpan="5" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)'}}>No pending cards.</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Approvals" subtitle="Review and act on pending customer requests." />
 
-                {/* Loans Approvals */}
-                <div className="glass" style={{padding: '1.5rem', borderRadius: '1rem'}}>
-                    <h3><PiggyBank size={20} color="var(--accent)" style={{marginRight: '0.5rem'}}/> Pending Loans</h3>
-                    <table className="data-table" style={{marginTop: '1rem'}}>
-                        <thead>
-                            <tr>
-                                <th>Customer</th>
-                                <th>Loan Type</th>
-                                <th>Principal</th>
-                                <th>Term</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {pendingData.loans.length > 0 ? pendingData.loans.map(loan => (
-                                <tr key={loan.id}>
-                                    <td>{loan.customer_name}</td>
-                                    <td>{loan.loan_type}</td>
-                                    <td>₹{parseFloat(loan.principal).toLocaleString('en-IN')} @ {loan.interest_rate}%</td>
-                                    <td>{loan.term_months} months</td>
-                                    <td>
-                                        <div style={{display: 'flex', gap: '0.5rem'}}>
-                                            <button className="btn-primary" disabled={loading} style={{padding: '0.4rem 0.8rem'}} onClick={() => handleAction('loan', loan.id, 'Approved')}><CheckCircle size={16}/> Approve</button>
-                                            <button className="btn-secondary" disabled={loading} style={{padding: '0.4rem 0.8rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444'}} onClick={() => handleAction('loan', loan.id, 'Rejected')}><XCircle size={16}/> Reject</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )) : <tr><td colSpan="5" style={{textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)'}}>No pending loan requests.</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
+        {['Pending', 'Approved', 'Rejected'].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition flex items-center gap-1.5 ${activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            {tab}
+            {tab === 'Pending' && pendingCount > 0 && (
+              <span className="bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{pendingCount}</span>
+            )}
+          </button>
+        ))}
+      </div>
 
-            </div>
-        </div>
-    );
+      <div className="bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden">
+        {filtered.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                {['Customer', 'Request type', 'Details', 'Date', 'Status', 'Actions'].map(h => (
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filtered.map(req => (
+                <tr key={`${req.id}-${req.type}`} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-5 py-4">
+                    <p className="font-medium text-slate-900">{req.customer_name || `Customer #${req.customer_id}`}</p>
+                    <p className="text-xs text-slate-400">{req.email || ''}</p>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                      {req.type || req.request_type || 'Request'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-slate-600 max-w-xs truncate">
+                    {req.loan_type || req.card_type || req.account_type || '—'}
+                    {req.amount ? ` — ₹${parseFloat(req.amount).toLocaleString('en-IN')}` : ''}
+                  </td>
+                  <td className="px-5 py-4 text-slate-400 text-xs whitespace-nowrap">
+                    {new Date(req.created_at || req.requested_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td className="px-5 py-4">
+                    <StatusBadge status={(req.status || 'pending').toLowerCase()} />
+                  </td>
+                  <td className="px-5 py-4">
+                    {(req.status || '').toLowerCase() === 'pending' ? (
+                      <div className="flex items-center gap-2">
+                        <Button variant="success" size="sm" icon={CheckCircle}
+                          loading={loading === `${req.id}-approve`}
+                          onClick={() => handleAction(req.id, req.type || req.request_type, 'approve')}>
+                          Approve
+                        </Button>
+                        <Button variant="danger" size="sm" icon={XCircle}
+                          loading={loading === `${req.id}-reject`}
+                          onClick={() => handleAction(req.id, req.type || req.request_type, 'reject')}>
+                          Reject
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">No action needed</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <ClipboardList size={32} className="text-slate-200" />
+            <p className="text-sm text-slate-400">
+              {activeTab === 'Pending' ? 'All caught up! No pending approvals.' : `No ${activeTab.toLowerCase()} requests.`}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default ApprovalsPage;

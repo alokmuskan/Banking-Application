@@ -1,216 +1,206 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { PiggyBank, Calculator, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { PiggyBank, Calculator, FileCheck, History } from 'lucide-react';
-import '../styles/Pages.css';
+import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+import StatusBadge from '../components/StatusBadge';
+import FormInput from '../components/FormInput';
+
+const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(val || 0);
 
 const LoansPage = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(false);
-  
-  // EMI Calculator State
-  const [loanAmount, setLoanAmount] = useState(500000);
-  const [interestRate, setInterestRate] = useState(8.5);
-  const [tenureYears, setTenureYears] = useState(5);
-  const [emi, setEmi] = useState(0);
-
   const [customers, setCustomers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  
+
+  const [calc, setCalc] = useState({ amount: 500000, rate: 8.5, tenure: 5 });
+
+  const isCustomer = user?.role === 'customer';
+
+  const monthlyEMI = () => {
+    const P = calc.amount, r = calc.rate / 12 / 100, n = calc.tenure * 12;
+    if (!r) return P / n;
+    return (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  };
+
+  const emi = monthlyEMI();
+  const totalPayment = emi * calc.tenure * 12;
+  const totalInterest = totalPayment - calc.amount;
+
   const fetchCustomerLoans = async (targetCustomerId) => {
     try {
       const resp = await axios.get(`http://localhost:5000/api/loans/customer/${targetCustomerId}`);
       setLoans(resp.data);
-    } catch (err) {
-      console.error(err);
-      setLoans([]);
-    }
-  };
-
-  const fetchInitialData = async () => {
-    try {
-      if (user?.role === 'customer' && user?.customerId) {
-        fetchCustomerLoans(user.customerId);
-      } else {
-        const custResp = await axios.get('http://localhost:5000/api/customers');
-        setCustomers(custResp.data);
-      }
-    } catch (err) { console.error(err); }
+    } catch { setLoans([]); }
   };
 
   useEffect(() => {
-    fetchInitialData();
+    if (isCustomer && user?.customerId) {
+      fetchCustomerLoans(user.customerId);
+    } else {
+      axios.get('http://localhost:5000/api/customers').then(r => setCustomers(r.data)).catch(() => {});
+    }
   }, [user]);
 
   useEffect(() => {
-      if (selectedCustomerId) {
-          fetchCustomerLoans(selectedCustomerId);
-      } else if (user?.role !== 'customer') {
-          setLoans([]);
-      }
+    if (!isCustomer) {
+      if (selectedCustomerId) fetchCustomerLoans(selectedCustomerId);
+      else setLoans([]);
+    }
   }, [selectedCustomerId]);
 
-  // EMI Formula: E = P * r * (1 + r)^n / ((1 + r)^n - 1)
-  // r = monthly interest rate
-  // n = total months
-  useEffect(() => {
-    const P = loanAmount;
-    const r = (interestRate / 12) / 100;
-    const n = tenureYears * 12;
-    
-    if (P > 0 && r > 0 && n > 0) {
-        const emiValue = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-        setEmi(emiValue);
-    } else {
-        setEmi(0);
-    }
-  }, [loanAmount, interestRate, tenureYears]);
-
-  const applyForLoan = async () => {
-      const targetUserId = user?.role === 'customer' ? user?.customerId : selectedCustomerId;
-      const directStatus = user?.role === 'customer' ? 'Pending' : 'Active';
-
-      if (!targetUserId) return addToast('Please select a customer first.', 'error');
-
-      setLoading(true);
-      try {
-          await axios.post('http://localhost:5000/api/loans/apply', {
-              customer_id: targetUserId,
-              loan_type: 'Personal Loan', // Simplification for now
-              principal: loanAmount,
-              interest_rate: interestRate,
-              term_months: tenureYears * 12,
-              status: directStatus
-          });
-          addToast(`Loan ${directStatus === 'Active' ? 'Granted' : 'Application Submitted'} Successfully!`, 'success');
-          fetchCustomerLoans(targetUserId);
-      } catch (err) {
-          addToast(err.response?.data?.error || 'Failed to process loan', 'error');
-      } finally {
-          setLoading(false);
-      }
+  const handleApply = async () => {
+    const targetId = isCustomer ? user?.customerId : selectedCustomerId;
+    if (!targetId) return addToast('Select a customer first', 'error');
+    const status = isCustomer ? 'Pending' : 'Active';
+    setLoading(true);
+    try {
+      await axios.post('http://localhost:5000/api/loans/apply', {
+        customer_id: targetId,
+        loan_type: 'Personal Loan',
+        amount: calc.amount,
+        interest_rate: calc.rate,
+        tenure_months: calc.tenure * 12,
+        status,
+      });
+      addToast(`Loan ${status === 'Active' ? 'granted' : 'application submitted'}!`, 'success');
+      fetchCustomerLoans(targetId);
+    } catch (err) { addToast(err.response?.data?.error || 'Failed', 'error'); }
+    finally { setLoading(false); }
   };
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h2>{user?.role === 'customer' ? 'Loans Center' : 'Loan Origination Terminal'}</h2>
-        <p>{user?.role === 'customer' ? 'Calculate EMIs and apply for personal loans instantly.' : 'Configure loan terms and instantly grant credit to customers.'}</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Loans center" subtitle={isCustomer ? 'Apply for loans and track your EMI.' : 'Manage loan origination.'} />
 
-      {user?.role !== 'customer' && (
-          <div className="glass" style={{padding: '1.5rem', borderRadius: '1rem', marginBottom: '2rem'}}>
-             <h3><FileCheck size={20} color="var(--accent)" style={{marginRight: '0.5rem'}}/> Select Target Customer</h3>
-             <select className="form-control" value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} style={{background: 'var(--bg-tertiary)', marginTop: '1rem', width: '100%', maxWidth: '400px'}}>
-                 <option value="">-- Select Customer --</option>
-                 {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} ({c.email})</option>)}
-             </select>
-          </div>
+      {!isCustomer && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-card p-5">
+          <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2"><Users size={16} className="text-primary-600" /> Select customer</h3>
+          <select value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)}
+            className="h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 bg-white w-full max-w-xs">
+            <option value="">— Select customer —</option>
+            {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} ({c.email})</option>)}
+          </select>
+        </div>
       )}
 
-      <div className="cards-grid">
-        
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* EMI Calculator */}
-        <div className="emi-calculator glass">
-            <div className="card-header">
-                <h3><Calculator size={20} color="var(--accent)" /> EMI Calculator</h3>
-            </div>
-            
-            <div className="calc-body">
-                <div className="slider-group">
-                    <div className="slider-header">
-                        <label>Loan Amount</label>
-                        <span>₹{Number(loanAmount).toLocaleString('en-IN')}</span>
-                    </div>
-                    <input 
-                        type="range" min="10000" max="5000000" step="10000" 
-                        value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} 
-                        className="range-slider"
-                    />
-                </div>
+        <div className="lg:col-span-1 bg-white rounded-xl border border-slate-100 shadow-card p-6 space-y-5 h-fit">
+          <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2"><Calculator size={16} className="text-primary-600" /> EMI calculator</h3>
 
-                <div className="slider-group">
-                    <div className="slider-header">
-                        <label>Interest Rate (p.a)</label>
-                        <span>{interestRate}%</span>
-                    </div>
-                    <input 
-                        type="range" min="5" max="25" step="0.5" 
-                        value={interestRate} onChange={(e) => setInterestRate(e.target.value)} 
-                        className="range-slider"
-                    />
-                </div>
-
-                <div className="slider-group">
-                    <div className="slider-header">
-                        <label>Tenure (Years)</label>
-                        <span>{tenureYears} Years</span>
-                    </div>
-                    <input 
-                        type="range" min="1" max="30" step="1" 
-                        value={tenureYears} onChange={(e) => setTenureYears(e.target.value)} 
-                        className="range-slider"
-                    />
-                </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 flex justify-between mb-1">
+                Loan amount <span className="text-primary-600 font-semibold">{formatINR(calc.amount)}</span>
+              </label>
+              <input type="range" min="10000" max="5000000" step="10000"
+                value={calc.amount} onChange={e => setCalc(p => ({...p, amount: Number(e.target.value)}))}
+                className="w-full accent-blue-600" />
+              <div className="flex justify-between text-xs text-slate-400 mt-1"><span>₹10K</span><span>₹50L</span></div>
             </div>
 
-            <div className="emi-result">
-                <h4>Monthly EMI</h4>
-                <div className="emi-amount">₹{Math.round(emi).toLocaleString('en-IN')}</div>
-                <div className="emi-total-interest">
-                    Total Interest: ₹{Math.round((emi * tenureYears * 12) - loanAmount).toLocaleString('en-IN')}
-                </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 flex justify-between mb-1">
+                Interest rate <span className="text-primary-600 font-semibold">{calc.rate}%</span>
+              </label>
+              <input type="range" min="6" max="20" step="0.5"
+                value={calc.rate} onChange={e => setCalc(p => ({...p, rate: Number(e.target.value)}))}
+                className="w-full accent-blue-600" />
+              <div className="flex justify-between text-xs text-slate-400 mt-1"><span>6%</span><span>20%</span></div>
             </div>
-            
-            {((user?.role === 'customer') || (user?.role !== 'customer' && selectedCustomerId)) && (
-                <button className="btn-primary full-width" onClick={applyForLoan} disabled={loading} style={{marginTop: '1.5rem'}}>
-                    {loading ? 'Processing...' : (user?.role === 'customer' ? 'Apply for this Loan' : 'Grant this Loan')}
-                </button>
-            )}
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 flex justify-between mb-1">
+                Tenure <span className="text-primary-600 font-semibold">{calc.tenure} years</span>
+              </label>
+              <input type="range" min="1" max="20" step="1"
+                value={calc.tenure} onChange={e => setCalc(p => ({...p, tenure: Number(e.target.value)}))}
+                className="w-full accent-blue-600" />
+              <div className="flex justify-between text-xs text-slate-400 mt-1"><span>1 yr</span><span>20 yrs</span></div>
+            </div>
+          </div>
+
+          <div className="bg-primary-50 border border-primary-100 rounded-lg p-4 space-y-3">
+            <div className="text-center">
+              <p className="text-xs text-slate-500 mb-1">Monthly EMI</p>
+              <p className="text-2xl font-bold text-primary-600">{formatINR(emi)}</p>
+            </div>
+            <div className="space-y-1 pt-2 border-t border-primary-100">
+              {[
+                ['Principal', formatINR(calc.amount), 'text-slate-900'],
+                ['Total interest', formatINR(totalInterest), 'text-amber-600'],
+                ['Total payment', formatINR(totalPayment), 'text-emerald-600 font-semibold'],
+              ].map(([label, value, cls]) => (
+                <div key={label} className="flex justify-between text-sm">
+                  <span className="text-slate-500">{label}</span>
+                  <span className={cls}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Button className="w-full" onClick={handleApply} loading={loading} size="lg">
+            {isCustomer ? 'Apply for this loan →' : 'Grant loan to customer →'}
+          </Button>
         </div>
 
-        {/* Existing Loans */}
-        <div className="loans-list-container">
-            <div className="card-header" style={{marginBottom: '1rem'}}>
-                <h3><History size={20} color="var(--text-secondary)" /> {user?.role === 'customer' ? 'My Applications' : 'Customer Loans'}</h3>
-            </div>
-            <div className="loans-list">
-                {loans.length > 0 ? loans.map(loan => (
-                    <div key={loan.id} className="loan-card glass">
-                        <div className="loan-header">
-                            <div>
-                                <h4>{loan.loan_type}</h4>
-                                <span className="loan-date">{new Date(loan.application_date).toLocaleDateString()}</span>
-                            </div>
-                            <span className={`status-tag ${loan.status.toLowerCase()}`}>{loan.status}</span>
-                        </div>
-                        <div className="loan-details">
-                            <div className="detail-col">
-                                <span>Principal</span>
-                                <strong>₹{parseFloat(loan.principal).toLocaleString('en-IN')}</strong>
-                            </div>
-                            <div className="detail-col">
-                                <span>Interest</span>
-                                <strong>{loan.interest_rate}%</strong>
-                            </div>
-                            <div className="detail-col">
-                                <span>Tenure</span>
-                                <strong>{loan.term_months} Mo</strong>
-                            </div>
-                        </div>
+        {/* Active Loans */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-900">Active loans</h3>
+          </div>
+          {loans.length > 0 ? (
+            <div className="divide-y divide-slate-50">
+              {loans.map(loan => {
+                const emiAmt = monthlyEMI();
+                const paidPercent = Math.min(100, Math.round(10));
+                return (
+                  <div key={loan.loan_id} className="px-6 py-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{loan.loan_type}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Loan ID: L-{6000 + loan.loan_id}</p>
+                      </div>
+                      <StatusBadge status={(loan.status || 'active').toLowerCase()} />
                     </div>
-                )) : (
-                    <div className="no-data glass" style={{padding: '3rem'}}>
-                        <PiggyBank size={48} color="var(--border)" style={{marginBottom: '1rem'}} />
-                        <p>{user?.role === 'customer' ? 'You have no active loans or applications.' : 'This customer has no loan portfolio.'}</p>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      {[
+                        ['Amount', formatINR(loan.amount)],
+                        ['Interest', `${loan.interest_rate}% p.a.`],
+                        ['Tenure', `${loan.tenure_months} mo.`],
+                      ].map(([label, value]) => (
+                        <div key={label}>
+                          <p className="text-xs text-slate-400">{label}</p>
+                          <p className="text-sm font-semibold text-slate-900">{value}</p>
+                        </div>
+                      ))}
                     </div>
-                )}
+                    <div>
+                      <div className="flex justify-between text-xs text-slate-400 mb-1">
+                        <span>Repayment progress</span>
+                        <span>{paidPercent}%</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary-600 rounded-full" style={{ width: `${paidPercent}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <PiggyBank size={32} className="text-slate-200" />
+              <p className="text-sm text-slate-400">No active loans found</p>
+            </div>
+          )}
         </div>
-
       </div>
     </div>
   );

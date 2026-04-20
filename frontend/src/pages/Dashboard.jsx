@@ -1,180 +1,272 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Users, CreditCard, Landmark, TrendingUp, Eye, EyeOff } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import {
+  Landmark, CreditCard, TrendingUp, Users, ArrowDownCircle, ArrowUpCircle, Repeat,
+  Eye, EyeOff, ArrowUpRight
+} from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
 import { useAuth } from '../context/AuthContext';
-import '../styles/Dashboard.css';
+import StatCard from '../components/StatCard';
+import StatusBadge from '../components/StatusBadge';
+import PageHeader from '../components/PageHeader';
+import { SkeletonCard } from '../components/SkeletonLoader';
 
-const StatCard = ({ title, value, icon: Icon, color }) => (
-  <div className="stat-card glass">
-    <div className="stat-info">
-      <span className="stat-title">{title}</span>
-      <span className="stat-value">{value}</span>
-    </div>
-    <div className="stat-icon" style={{ background: color }}>
-      <Icon size={24} color="white" />
-    </div>
-  </div>
-);
+const formatINR = (val) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(val || 0);
+const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const PIE_COLORS = { Deposit: '#2563EB', Withdrawal: '#DC2626', Transfer: '#8B5CF6' };
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [hideBalance, setHideBalance] = useState(false);
   const [stats, setStats] = useState({ customers: 0, accounts: 0, totalDeposits: 0, branches: 0 });
   const [customerBalance, setCustomerBalance] = useState(0);
+  const [accounts, setAccounts] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [pieData, setPieData] = useState([]);
-  const [hideBalance, setHideBalance] = useState(false);
+  const [recentTx, setRecentTx] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+
+  const isCustomer = user?.role === 'customer';
+  const isAdmin = user?.role === 'admin' || user?.role === 'teller';
 
   useEffect(() => {
-    const fetchGlobalStats = async () => {
+    const load = async () => {
+      setLoading(true);
       try {
-        const resp = await axios.get('http://localhost:5000/api/dashboard/stats');
-        setStats(resp.data);
-      } catch (err) { console.error('Failed to fetch dashboard stats:', err); }
-    };
+        if (isCustomer && user?.customerId) {
+          const [accsResp, txResp] = await Promise.all([
+            axios.get(`http://localhost:5000/api/accounts/customer/${user.customerId}`),
+            axios.get('http://localhost:5000/api/transactions/global/recent'),
+          ]);
+          setAccounts(accsResp.data);
+          setCustomerBalance(accsResp.data.reduce((sum, a) => sum + parseFloat(a.balance), 0));
+          setRecentTx(txResp.data.slice(0, 5));
 
-    const fetchCustomerData = async () => {
-      if(!user?.customerId) return;
-      try {
-        const accs = await axios.get(`http://localhost:5000/api/accounts/customer/${user.customerId}`);
-        let total = 0;
-        let primaryAccId = null;
-        if(accs.data.length > 0) {
-            primaryAccId = accs.data[0].account_id;
-            accs.data.forEach(a => total += parseFloat(a.balance));
-        }
-        setCustomerBalance(total);
-        setStats(prev => ({...prev, accounts: accs.data.length}));
-
-        if(primaryAccId) {
+          if (accsResp.data.length > 0) {
+            const accId = accsResp.data[0].account_id;
             const [areaResp, pieResp] = await Promise.all([
-                axios.get(`http://localhost:5000/api/analytics/spending/${primaryAccId}`),
-                axios.get(`http://localhost:5000/api/analytics/distribution/${primaryAccId}`)
+              axios.get(`http://localhost:5000/api/analytics/spending/${accId}`),
+              axios.get(`http://localhost:5000/api/analytics/distribution/${accId}`),
             ]);
             setChartData(areaResp.data);
             setPieData(pieResp.data);
+          }
+        } else if (isAdmin) {
+          const [statsResp, txResp, approvalsResp] = await Promise.all([
+            axios.get('http://localhost:5000/api/dashboard/stats'),
+            axios.get('http://localhost:5000/api/transactions/global/recent'),
+            axios.get('http://localhost:5000/api/admin/requests').catch(() => ({ data: [] })),
+          ]);
+          setStats(statsResp.data);
+          setRecentTx(txResp.data.slice(0, 5));
+          setPendingApprovals((approvalsResp.data || []).filter(r => r.status === 'Pending').slice(0, 3));
         }
-      } catch (err) { console.error('Failed to fetch customer data:', err); }
+      } finally { setLoading(false); }
     };
-
-    if (user?.role === 'customer') {
-        fetchCustomerData();
-    } else {
-        fetchGlobalStats();
-    }
+    load();
   }, [user]);
 
-  const formatCurrency = (val) => {
-    if(hideBalance) return '₹ * * * *';
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+  const masked = (val) => hideBalance ? '₹ ****' : formatINR(val);
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg shadow-card-md p-3">
+        <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
+        {payload.map(p => (
+          <p key={p.dataKey} className="text-sm font-semibold" style={{ color: p.color }}>
+            {p.name}: {formatINR(p.value)}
+          </p>
+        ))}
+      </div>
+    );
   };
 
-  const isCustomer = user?.role === 'customer';
+  if (loading) {
+    return (
+      <div>
+        <PageHeader title="Dashboard" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <SkeletonCard key={i} />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="dashboard-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2>{isCustomer ? 'My Dashboard' : 'Global Admin Hub'}</h2>
-          <button 
-             onClick={() => setHideBalance(!hideBalance)} 
-             style={{display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderRadius: '2rem', cursor: 'pointer', transition: 'all 0.2s'}}
-             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
-             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-          >
-             {hideBalance ? <EyeOff size={16} /> : <Eye size={16} />}
-             <span>{hideBalance ? 'Show Balances' : 'Hide Balances'}</span>
-          </button>
+    <div className="space-y-6">
+      <PageHeader title={isCustomer ? 'My Dashboard' : 'Admin Overview'} subtitle={isCustomer ? `Welcome back, ${user?.email?.split('@')[0]}` : 'System-wide banking operations'}>
+        <button
+          onClick={() => setHideBalance(!hideBalance)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-3 py-2 transition"
+        >
+          {hideBalance ? <EyeOff size={14} /> : <Eye size={14} />}
+          {hideBalance ? 'Show' : 'Hide'} balances
+        </button>
+      </PageHeader>
+
+      {/* STAT CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {isCustomer ? (
+          <>
+            <StatCard label="Total Balance" value={masked(customerBalance)} icon={Landmark} colorScheme="blue" sub="All accounts combined" />
+            <StatCard label="Active Accounts" value={hideBalance ? '*' : accounts.length} icon={CreditCard} colorScheme="green" sub="Savings & current" />
+            <StatCard label="Primary Account" value={accounts[0] ? `****${String(accounts[0].account_id).padStart(4,'0')}` : 'N/A'} icon={CreditCard} colorScheme="amber" sub={accounts[0] ? formatINR(accounts[0].balance) : 'No account'} />
+            <StatCard label="Recent Activity" value={recentTx.length} icon={ArrowUpRight} colorScheme="purple" sub="Transactions shown" />
+          </>
+        ) : (
+          <>
+            <StatCard label="Total customers" value={stats.customers} icon={Users} colorScheme="blue" />
+            <StatCard label="Total accounts" value={stats.accounts} icon={CreditCard} colorScheme="green" />
+            <StatCard label="Total deposits" value={formatINR(stats.totalDeposits)} icon={Landmark} colorScheme="purple" />
+            <StatCard label="Bank branches" value={stats.branches} icon={Landmark} colorScheme="amber" />
+          </>
+        )}
       </div>
 
-      <section className="stats-grid">
-        {isCustomer ? (
-            <>
-                <StatCard title="Total Balance" value={formatCurrency(customerBalance)} icon={Landmark} color="#8b5cf6" />
-                <StatCard title="Active Accounts" value={hideBalance ? '*' : stats.accounts} icon={CreditCard} color="#10b981" />
-            </>
-        ) : (
-            <>
-                <StatCard title="Total Customers" value={hideBalance ? '*' : stats.customers} icon={Users} color="#3b82f6" />
-                <StatCard title="Active Accounts" value={hideBalance ? '*' : stats.accounts} icon={CreditCard} color="#10b981" />
-                <StatCard title="Total Deposits" value={formatCurrency(stats.totalDeposits)} icon={TrendingUp} color="#8b5cf6" />
-                <StatCard title="Branches" value={hideBalance ? '*' : stats.branches} icon={Landmark} color="#f59e0b" />
-            </>
-        )}
-      </section>
-
-      {isCustomer ? (
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
-              <div className="glass" style={{ padding: '2rem', borderRadius: '1.5rem' }}>
-                  <h3 style={{ marginBottom: '1.5rem' }}>Cashflow Analytics (Last 6 Months)</h3>
-                  <div style={{ width: '100%', height: 300 }}>
-                    {chartData.length > 0 ? (
-                        <ResponsiveContainer>
-                            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="name" stroke="var(--text-secondary)" />
-                                <YAxis stroke="var(--text-secondary)" />
-                                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
-                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px' }} />
-                                <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" />
-                                <Area type="monotone" dataKey="expense" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div style={{height: '100%', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-secondary)'}}>
-                            Not enough transaction data to build chart.
-                        </div>
-                    )}
-                  </div>
+      {/* CUSTOMER CHARTS */}
+      {isCustomer && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Area Chart */}
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Cash flow overview</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Last 6 months, income vs expenses</p>
               </div>
-
-              <div className="glass" style={{ padding: '2rem', borderRadius: '1.5rem' }}>
-                  <h3 style={{ marginBottom: '1.5rem' }}>Transaction Distribution</h3>
-                  <div style={{ width: '100%', height: 300 }}>
-                    {pieData.length > 0 ? (
-                        <ResponsiveContainer>
-                            <PieChart>
-                                <Pie 
-                                    data={pieData} 
-                                    cx="50%" cy="50%" 
-                                    innerRadius={60} outerRadius={100} 
-                                    paddingAngle={5} dataKey="value"
-                                >
-                                    {pieData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px' }} />
-                                <Legend verticalAlign="bottom" height={36}/>
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div style={{height: '100%', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-secondary)'}}>
-                            No transactions recorded yet.
-                        </div>
-                    )}
-                  </div>
-              </div>
-          </section>
-      ) : (
-          <section className="recent-activity glass" style={{ marginTop: '2rem' }}>
-            <h2>Quick Actions</h2>
-            <div className="quick-actions">
-            <button className="btn-primary" onClick={() => navigate('/customers')}>Register Customer</button>
-            <button className="btn-secondary" onClick={() => navigate('/accounts')}>Open Account</button>
-            <button className="btn-secondary" onClick={() => navigate('/transactions')}>Transfer Funds</button>
             </div>
-          </section>
+            <div className="h-56">
+              <ResponsiveContainer>
+                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="expenseFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#DC2626" stopOpacity={0.1} />
+                      <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v >= 1000 ? (v/1000).toFixed(0)+'K' : v}`} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="income" name="Income" stroke="#2563EB" strokeWidth={2} fill="url(#incomeFill)" dot={false} />
+                  <Area type="monotone" dataKey="expense" name="Expense" stroke="#DC2626" strokeWidth={2} fill="url(#expenseFill)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Pie Chart */}
+          <div className="bg-white rounded-xl border border-slate-100 shadow-card p-6">
+            <h3 className="text-sm font-semibold text-slate-900 mb-5">Portfolio distribution</h3>
+            {pieData.length > 0 ? (
+              <div className="h-56">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="45%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
+                      {pieData.map((entry) => (
+                        <Cell key={entry.name} fill={PIE_COLORS[entry.name] || '#94A3B8'} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v) => formatINR(v)} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-56 flex items-center justify-center">
+                <p className="text-sm text-slate-400">No transaction data yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN APPROVALS */}
+      {isAdmin && pendingApprovals.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-card">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-900">Pending approvals</h3>
+            <button onClick={() => navigate('/approvals')} className="text-xs text-primary-600 hover:underline">View all →</button>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {pendingApprovals.map((req, i) => (
+              <div key={i} className="px-6 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{req.customer_name || `Customer #${req.customer_id}`}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{req.request_type || req.type} · {formatDate(req.created_at || req.requested_at)}</p>
+                </div>
+                <StatusBadge status="pending" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* RECENT TRANSACTIONS */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-card">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h3 className="text-sm font-semibold text-slate-900">Recent transactions</h3>
+          <button onClick={() => navigate('/statement')} className="text-xs text-primary-600 hover:underline">View all →</button>
+        </div>
+        {recentTx.length > 0 ? (
+          <div className="divide-y divide-slate-50">
+            {recentTx.map((t) => (
+              <div key={t.transaction_id} className="flex items-center justify-between px-6 py-3 hover:bg-slate-50 transition-colors cursor-pointer">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${t.type === 'Deposit' ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    {t.type === 'Deposit' ? <ArrowDownCircle size={14} className="text-emerald-600" /> : <ArrowUpCircle size={14} className="text-red-600" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{t.description || t.type}</p>
+                    <p className="text-xs text-slate-400">{formatDate(t.timestamp)}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-semibold ${t.type === 'Deposit' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {t.type === 'Deposit' ? '+' : '-'}{formatINR(t.amount)}
+                  </p>
+                  <StatusBadge status="success" size="sm" label="Completed" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 flex flex-col items-center gap-2">
+            <Repeat size={28} className="text-slate-300" />
+            <p className="text-sm text-slate-400">No transactions yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* ADMIN Quick Actions */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Register customer', path: '/customers', color: 'text-blue-600 bg-blue-50' },
+            { label: 'Open account', path: '/accounts', color: 'text-emerald-600 bg-emerald-50' },
+            { label: 'Review approvals', path: '/approvals', color: 'text-amber-600 bg-amber-50' },
+          ].map(({ label, path, color }) => (
+            <button key={path} onClick={() => navigate(path)}
+              className="bg-white rounded-xl border border-slate-100 p-5 text-left hover:shadow-card-md transition-shadow cursor-pointer group">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${color}`}>
+                <ArrowUpRight size={16} />
+              </div>
+              <p className="text-sm font-medium text-slate-900">{label}</p>
+              <p className="text-xs text-slate-400 mt-0.5 group-hover:text-primary-600 transition-colors">Click to navigate →</p>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
