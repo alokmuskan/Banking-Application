@@ -118,7 +118,7 @@ const Dashboard = () => {
           <>
             <StatCard label="Total Balance" value={masked(customerBalance)} icon={Landmark} colorScheme="blue" sub="All accounts combined" />
             <StatCard label="Active Accounts" value={hideBalance ? '*' : accounts.length} icon={CreditCard} colorScheme="green" sub="Savings & current" />
-            <StatCard label="Primary Account" value={accounts[0] ? `****${String(accounts[0].account_id).padStart(4,'0')}` : 'N/A'} icon={CreditCard} colorScheme="amber" sub={accounts[0] ? formatINR(accounts[0].balance) : 'No account'} />
+            <StatCard label="Primary Account" value={accounts[0] ? `****${String(accounts[0].account_id).padStart(4,'0')}` : 'N/A'} icon={CreditCard} colorScheme="amber" sub={accounts[0] ? masked(accounts[0].balance) : 'No account'} />
             <StatCard label="Recent Activity" value={recentTx.length} icon={ArrowUpRight} colorScheme="purple" sub="Transactions shown" />
           </>
         ) : (

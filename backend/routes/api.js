@@ -82,10 +82,11 @@ router.get('/customers', async (req, res) => {
 // 3. Create Account
 router.post('/accounts', async (req, res) => {
     try {
-        const { customer_id, branch_id, account_type, initial_balance } = req.body;
+        const { customer_id, branch_id, account_type, initial_balance, initial_deposit } = req.body;
+        const balance = initial_balance || initial_deposit || 0;
         const [result] = await db.execute(
             'INSERT INTO Accounts (customer_id, branch_id, account_type, balance, open_date) VALUES (?, ?, ?, ?, CURDATE())',
-            [customer_id, branch_id, account_type, initial_balance || 0]
+            [customer_id || null, branch_id || null, account_type, balance]
         );
         res.status(201).json({ message: 'Account created successfully', id: result.insertId });
     } catch (error) {
@@ -93,10 +94,32 @@ router.post('/accounts', async (req, res) => {
     }
 });
 
-// 4. Get Accounts by Customer
+// GET all accounts (for admin AccountPage)
+router.get('/accounts', async (req, res) => {
+    try {
+        const [rows] = await db.execute(
+            `SELECT a.*, c.name, c.email, b.branch_name
+             FROM Accounts a
+             LEFT JOIN Customers c ON a.customer_id = c.customer_id
+             LEFT JOIN Branches b ON a.branch_id = b.branch_id
+             ORDER BY a.account_id DESC`
+        );
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET accounts by customer (join with customer name for display)
 router.get('/accounts/customer/:id', async (req, res) => {
     try {
-        const [rows] = await db.execute('SELECT * FROM Accounts WHERE customer_id = ?', [req.params.id]);
+        const [rows] = await db.execute(
+            `SELECT a.*, c.name as customer_name
+             FROM Accounts a
+             LEFT JOIN Customers c ON a.customer_id = c.customer_id
+             WHERE a.customer_id = ?`,
+            [req.params.id]
+        );
         res.json(rows);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -151,41 +174,54 @@ router.post('/accounts/request', async (req, res) => {
     }
 });
 
-// --- Transaction APIs ---
-
 // 5. Deposit / Withdrawal / Transfer (Unified Handler)
 router.post('/transactions', async (req, res) => {
-    const { from_account_id, to_account_id, amount, type, description } = req.body;
-    
+    let { from_account_id, to_account_id, amount, type, description } = req.body;
+
     try {
-        // Validation for Transfer
-        if (type === 'Transfer' && (!from_account_id || !to_account_id)) {
-            return res.status(400).json({ error: 'Both accounts are required for transfer' });
+        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+            return res.status(400).json({ error: 'A valid positive amount is required' });
         }
 
         if (type === 'Transfer') {
-            // Check if to_account_id is a registered beneficiary
+            if (!from_account_id || !to_account_id) {
+                return res.status(400).json({ error: 'Both source account and beneficiary are required for transfer' });
+            }
+
+            // Verify source account exists
             const [accountInfo] = await db.execute('SELECT customer_id FROM Accounts WHERE account_id = ?', [from_account_id]);
             if (accountInfo.length === 0) return res.status(404).json({ error: 'Source account not found' });
-            
+
             const customerId = accountInfo[0].customer_id;
+
+            // Resolve beneficiary — to_account_id is the payee_account_no stored in Beneficiaries
             const [ben] = await db.execute(
                 'SELECT * FROM Beneficiaries WHERE customer_id = ? AND payee_account_no = ? AND status = "Active"',
-                [customerId, to_account_id]
+                [customerId, String(to_account_id)]
             );
-            
             if (ben.length === 0) {
                 return res.status(400).json({ error: 'Destination account is not a registered beneficiary.' });
             }
+
+            // Resolve the actual account_id from the Accounts table using payee_account_no
+            const [destAcc] = await db.execute('SELECT account_id FROM Accounts WHERE account_id = ?', [ben[0].payee_account_no]);
+            if (destAcc.length > 0) {
+                to_account_id = destAcc[0].account_id;
+            }
+            // If no matching account in DB (external bank), to_account_id stays as payee_account_no
         }
 
-        // We use a single INSERT. Our database triggers will handle balance updates and insufficient funds check.
+        if (type === 'Withdrawal') {
+            if (!from_account_id) return res.status(400).json({ error: 'Source account is required for withdrawal' });
+        }
+
+        // Insert — DB triggers handle balance deduction and insufficient-funds guard
         const [result] = await db.execute(
             'INSERT INTO Transactions (from_account_id, to_account_id, amount, type, description) VALUES (?, ?, ?, ?, ?)',
-            [from_account_id || null, to_account_id || null, amount, type, description]
+            [from_account_id || null, to_account_id || null, amount, type, description || null]
         );
 
-        // -- Generate Notification --
+        // Generate notification
         if (from_account_id) {
             try {
                 const [accInfo] = await db.execute('SELECT customer_id FROM Accounts WHERE account_id = ?', [from_account_id]);
@@ -194,18 +230,14 @@ router.post('/transactions', async (req, res) => {
                     const amountStr = `₹${parseFloat(amount).toLocaleString('en-IN')}`;
                     await db.execute(
                         'INSERT INTO Notifications (customer_id, title, message) VALUES (?, ?, ?)',
-                        [cId, `Transaction Alert: ${type}`, `Your recent ${type} of ${amountStr} was processed successfully.`]
+                        [cId, `Transaction Alert: ${type}`, `Your ${type} of ${amountStr} was processed successfully.`]
                     );
                 }
             } catch (notifErr) { console.error('Notification Error:', notifErr); }
         }
 
-        res.status(201).json({ 
-            message: 'Transaction processed successfully', 
-            id: result.insertId 
-        });
+        res.status(201).json({ message: 'Transaction processed successfully', id: result.insertId });
     } catch (error) {
-        // If the balance-check trigger fails, it throws a SQLSTATE 45000 which we catch here
         res.status(400).json({ error: error.message });
     }
 });

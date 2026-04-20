@@ -9,6 +9,7 @@ import FormInput from '../components/FormInput';
 const CustomerPage = () => {
   const { addToast } = useToast();
   const [customers, setCustomers] = useState([]);
+  const [customerAccounts, setCustomerAccounts] = useState({}); // map: customer_id -> [accounts]
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,16 @@ const CustomerPage = () => {
   const fetchData = async () => {
     const resp = await axios.get('http://localhost:5000/api/customers');
     setCustomers(resp.data);
+
+    // Fetch account counts for each customer
+    const accsMap = {};
+    await Promise.all(resp.data.map(async (c) => {
+      try {
+        const aResp = await axios.get(`http://localhost:5000/api/accounts/customer/${c.customer_id}`);
+        accsMap[c.customer_id] = aResp.data;
+      } catch { accsMap[c.customer_id] = []; }
+    }));
+    setCustomerAccounts(accsMap);
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -122,32 +133,65 @@ const CustomerPage = () => {
         </div>
       )}
 
-      {/* Customer grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map(c => (
-          <div key={c.customer_id} className="bg-white rounded-xl border border-slate-100 shadow-card p-5 hover:shadow-card-md transition-shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-sm font-semibold text-primary-700">{c.name?.slice(0, 2).toUpperCase() || 'NA'}</span>
+      {/* Customer grid — hidden while form is open */}
+      {!showForm && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map(c => {
+            const accs = customerAccounts[c.customer_id] || [];
+            return (
+              <div key={c.customer_id} className="bg-white rounded-xl border border-slate-100 shadow-card p-5 hover:shadow-card-md transition-all hover:-translate-y-0.5 group">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <span className="text-sm font-bold text-white">{c.name?.slice(0, 2).toUpperCase() || 'NA'}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{c.name}</p>
+                    <p className="text-xs text-slate-400 font-mono">CUST-{8000 + c.customer_id}</p>
+                  </div>
+                </div>
+
+                {/* Details */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-slate-500"><Mail size={11} className="flex-shrink-0" /><span className="truncate">{c.email}</span></div>
+                  {c.phone && <div className="flex items-center gap-2 text-xs text-slate-500"><Phone size={11} />{c.phone}</div>}
+                  {c.occupation && <p className="text-xs text-slate-400 italic">{c.occupation}</p>}
+                </div>
+
+                {/* Accounts */}
+                {accs.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Accounts</p>
+                    <div className="space-y-1">
+                      {accs.slice(0, 2).map(a => (
+                        <div key={a.account_id} className="flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-600">Acc #{a.account_id}</span>
+                          <span className="text-xs text-slate-400">{a.account_type}</span>
+                        </div>
+                      ))}
+                      {accs.length > 2 && <p className="text-[10px] text-slate-400">+{accs.length - 2} more</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* KYC badge */}
+                <div className="mt-3 flex justify-between items-center">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${c.kyc_document_type ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                    {c.kyc_document_type ? '✓ KYC Done' : '⚠ KYC Pending'}
+                  </span>
+                  <span className="text-[10px] text-slate-400">{accs.length} acct{accs.length !== 1 ? 's' : ''}</span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900 truncate">{c.name}</p>
-                <p className="text-xs text-slate-400">CUST-{8000 + c.customer_id}</p>
-              </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="col-span-full flex flex-col items-center py-16 gap-3">
+              <Users size={32} className="text-slate-200" />
+              <p className="text-sm text-slate-400">No customers found</p>
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-xs text-slate-500"><Mail size={11} /><span className="truncate">{c.email}</span></div>
-              {c.phone && <div className="flex items-center gap-2 text-xs text-slate-500"><Phone size={11} />{c.phone}</div>}
-            </div>
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <div className="col-span-full flex flex-col items-center py-16 gap-3">
-            <Users size={32} className="text-slate-200" />
-            <p className="text-sm text-slate-400">No customers found</p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

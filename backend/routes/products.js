@@ -64,11 +64,19 @@ router.get('/loans/customer/:customerId', async (req, res) => {
 // 2. Apply for Loan
 router.post('/loans/apply', async (req, res) => {
     try {
-        const { customer_id, loan_type, principal, interest_rate, term_months, status } = req.body;
+        const { customer_id, loan_type, amount, principal, interest_rate, tenure_months, term_months, status } = req.body;
+
+        // Accept either naming convention from frontend
+        const loanPrincipal = principal || amount;
+        const loanTenure    = term_months || tenure_months;
+
+        if (!customer_id)    return res.status(400).json({ error: 'customer_id is required' });
+        if (!loanPrincipal)  return res.status(400).json({ error: 'Loan amount is required' });
+        if (!loanTenure)     return res.status(400).json({ error: 'Loan tenure is required' });
 
         const [result] = await db.execute(
             'INSERT INTO Loans (customer_id, loan_type, principal, interest_rate, term_months, status) VALUES (?, ?, ?, ?, ?, ?)',
-            [customer_id, loan_type, principal, interest_rate, term_months, status || 'Pending']
+            [customer_id, loan_type || 'Personal Loan', loanPrincipal, interest_rate || 8.5, loanTenure, status || 'Pending']
         );
         res.status(201).json({ message: 'Loan application submitted successfully', loanId: result.insertId });
     } catch (error) {

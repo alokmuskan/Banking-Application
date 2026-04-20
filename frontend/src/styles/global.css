@@ -117,6 +117,18 @@ html.dark {
 @layer base {
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* Uniform theme transition — prevents staggered section flicker */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+
+  /* But DON'T transition transforms/opacity — that breaks animations */
+  .animate-slide-in, .animate-fade-in {
+    transition: none;
+  }
+
   html, body, #root {
     height: 100%;
     font-family: 'Inter', system-ui, sans-serif;

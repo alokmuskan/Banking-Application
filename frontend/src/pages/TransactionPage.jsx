@@ -25,21 +25,34 @@ const TransactionPage = () => {
 
   const up = (key, val) => setFormData(p => ({...p, [key]: val}));
 
+  // Reset amount and description when switching tabs
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setFormData(p => ({ ...p, amount: '', description: '' }));
+  };
+
   const fetchData = async () => {
     try {
-      const resp = await axios.get('http://localhost:5000/api/customers');
-      const currentCustomer = user?.role === 'customer' && user.customerId
-        ? resp.data.find(c => c.customer_id === user.customerId)
-        : resp.data[0];
-
-      if (currentCustomer) {
-        const custId = currentCustomer.customer_id;
+      // For customers, use their customer ID directly
+      if (user?.customerId) {
         const [accs, bens] = await Promise.all([
-          axios.get(`http://localhost:5000/api/accounts/customer/${custId}`),
-          axios.get(`http://localhost:5000/api/beneficiaries/${custId}`),
+          axios.get(`http://localhost:5000/api/accounts/customer/${user.customerId}`),
+          axios.get(`http://localhost:5000/api/beneficiaries/${user.customerId}`),
         ]);
         setAccounts(accs.data);
         setBeneficiaries(bens.data);
+      } else if (user?.role !== 'customer') {
+        // Admin/teller — fetch all accounts
+        const resp = await axios.get('http://localhost:5000/api/customers');
+        if (resp.data.length > 0) {
+          const custId = resp.data[0].customer_id;
+          const [accs, bens] = await Promise.all([
+            axios.get(`http://localhost:5000/api/accounts/customer/${custId}`),
+            axios.get(`http://localhost:5000/api/beneficiaries/${custId}`),
+          ]);
+          setAccounts(accs.data);
+          setBeneficiaries(bens.data);
+        }
       }
       const recent = await axios.get('http://localhost:5000/api/transactions/global/recent');
       setRecentTransactions(recent.data);
@@ -118,10 +131,10 @@ const TransactionPage = () => {
         {/* LEFT: FORM */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-card">
           {/* Tabs */}
-          <div className="flex border-b border-slate-100 px-4 pt-4 gap-1">
+          <div className="flex border-b border-slate-100 px-4 pt-4 gap-1 overflow-x-auto">
             {TABS.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              <button key={tab} onClick={() => switchTab(tab)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab ? 'border-primary-600 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}>
                 {tabIcons[tab]} {tab}
@@ -173,8 +186,8 @@ const TransactionPage = () => {
                   </div>
                 )}
 
-                {/* Quick amounts for Deposit */}
-                {activeTab === 'Deposit' && (
+                {/* Quick amounts for Deposit and Withdrawal */}
+                {(activeTab === 'Deposit' || activeTab === 'Withdrawal') && (
                   <div>
                     <label className="text-sm font-medium text-slate-700 block mb-2">Quick amount</label>
                     <div className="flex gap-2 flex-wrap">

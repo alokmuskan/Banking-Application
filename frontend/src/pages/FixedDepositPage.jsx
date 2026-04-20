@@ -34,11 +34,21 @@ const FixedDepositPage = () => {
   const selectedPlan = FD_PLANS.find(p => p.months === parseInt(form.duration_months)) || FD_PLANS[1];
 
   const fetchData = async () => {
-    if (!user?.customerId) return;
     try {
+      let custId = user?.customerId;
+
+      // If customerId not in JWT, look up by email
+      if (!custId && user?.email) {
+        const custResp = await axios.get('http://localhost:5000/api/customers');
+        const me = custResp.data.find(c => c.email === user.email);
+        if (me) custId = me.customer_id;
+      }
+
+      if (!custId) return;
+
       const [accsResp, fdResp] = await Promise.all([
-        axios.get(`http://localhost:5000/api/accounts/customer/${user.customerId}`),
-        axios.get(`http://localhost:5000/api/fd/${user.customerId}`),
+        axios.get(`http://localhost:5000/api/accounts/customer/${custId}`),
+        axios.get(`http://localhost:5000/api/fd/${custId}`),
       ]);
       setAccounts(accsResp.data);
       setFds(fdResp.data);
@@ -61,9 +71,16 @@ const FixedDepositPage = () => {
     if (!form.linked_account_id) { addToast('Please select a source account', 'error'); return; }
     setLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/fd/book', { ...form, customer_id: user.customerId });
+      let custId = user?.customerId;
+      if (!custId && user?.email) {
+        const custResp = await axios.get('http://localhost:5000/api/customers');
+        const me = custResp.data.find(c => c.email === user.email);
+        if (me) custId = me.customer_id;
+      }
+      if (!custId) { addToast('Customer profile not found', 'error'); return; }
+      await axios.post('http://localhost:5000/api/fd/book', { ...form, customer_id: custId });
       addToast('Fixed deposit booked successfully!', 'success');
-      setForm(p => ({ ...p, principal_amount: '' }));
+      setForm(p => ({ ...p, principal_amount: '', linked_account_id: '' }));
       fetchData();
     } catch (err) {
       addToast(err.response?.data?.error || 'Failed to book FD', 'error');
