@@ -14,7 +14,7 @@ const CardsPage = () => {
   const [accounts, setAccounts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [customerName, setCustomerName] = useState('');
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('all');
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [loading, setLoading] = useState(false);
   const [revealedCard, setRevealedCard] = useState(null); // card id whose details are visible
@@ -23,6 +23,13 @@ const CardsPage = () => {
 
   const fetchCustomerData = async (targetCustomerId) => {
     try {
+      if (targetCustomerId === 'all') {
+        const cardsResp = await axios.get(`http://localhost:5000/api/cards`);
+        setCards(cardsResp.data);
+        setAccounts([]);
+        setSelectedAccountId('');
+        return;
+      }
       const [accs, cardsResp] = await Promise.all([
         axios.get(`http://localhost:5000/api/accounts/customer/${targetCustomerId}`),
         axios.get(`http://localhost:5000/api/cards/customer/${targetCustomerId}`),
@@ -50,6 +57,7 @@ const CardsPage = () => {
       } else {
         const custResp = await axios.get('http://localhost:5000/api/customers');
         setCustomers(custResp.data);
+        fetchCustomerData('all');
       }
     };
     init();
@@ -58,8 +66,12 @@ const CardsPage = () => {
   useEffect(() => {
     if (!isCustomer && selectedCustomerId) {
       fetchCustomerData(selectedCustomerId);
-      const c = customers.find(c => c.customer_id === parseInt(selectedCustomerId));
-      if (c) setCustomerName(c.name);
+      if (selectedCustomerId !== 'all') {
+        const c = customers.find(c => c.customer_id === parseInt(selectedCustomerId));
+        if (c) setCustomerName(c.name);
+      } else {
+        setCustomerName('');
+      }
     } else if (!isCustomer && !selectedCustomerId) { setAccounts([]); setCards([]); }
   }, [selectedCustomerId]);
 
@@ -122,38 +134,48 @@ const CardsPage = () => {
       {!isCustomer && (
         <div className="bg-white rounded-xl border border-slate-100 shadow-card p-5">
           <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <Users size={16} className="text-primary-600" /> Select customer
+            <Users size={16} className="text-primary-600" /> Filter cards
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <select value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)}
-              className="h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500">
-              <option value="">— Select customer —</option>
-              {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} ({c.email})</option>)}
-            </select>
-            <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} disabled={!selectedCustomerId}
-              className="h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 disabled:opacity-50">
-              <option value="">— Select account —</option>
-              {accounts.map(a => <option key={a.account_id} value={a.account_id}>{a.account_type} — #{a.account_id}</option>)}
-            </select>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-col gap-1 w-full sm:w-64">
+              <label className="text-xs font-medium text-slate-500">Customer</label>
+              <select value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)}
+                className="h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500">
+                <option value="all">— All customers —</option>
+                {customers.map(c => <option key={c.customer_id} value={c.customer_id}>{c.name} ({c.email})</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1 w-full sm:w-64">
+              <label className="text-xs font-medium text-slate-500">Account</label>
+              <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)} disabled={selectedCustomerId === 'all' || !selectedCustomerId}
+                className="h-10 px-3 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 disabled:opacity-50">
+                <option value="">— Default account —</option>
+                {accounts.map(a => <option key={a.account_id} value={a.account_id}>{a.account_type} — #{a.account_id}</option>)}
+              </select>
+            </div>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cards list */}
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5 h-fit items-start">
+        <div className="lg:col-span-2 flex flex-col items-center space-y-6">
           {cards.length === 0 ? (
-            <div className="sm:col-span-2 bg-white rounded-xl border border-slate-100 shadow-card flex flex-col items-center py-16 gap-3">
+            <div className="w-full bg-white rounded-xl border border-slate-100 shadow-card flex flex-col items-center py-16 gap-3">
               <CreditCard size={32} className="text-slate-200" />
               <p className="text-sm text-slate-400">No cards found</p>
             </div>
           ) : cards.map(card => {
             const isRevealed = revealedCard === card.id;
+            const cardOwner = (!isCustomer && selectedCustomerId === 'all')
+              ? (customers.find(c => c.customer_id === card.customer_id)?.name || 'NEXUS CUSTOMER')
+              : (customerName || 'NEXUS CUSTOMER');
+
             return (
-              <div key={card.id} className="bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden">
+              <div key={card.id} className="bg-white rounded-xl border border-slate-100 shadow-card overflow-hidden w-full max-w-[360px]">
                 {/* ── Realistic card ── */}
-                <div className={`relative bg-gradient-to-br ${cardGradient(card.type, card.status)} p-5 mx-0 w-full flex flex-col justify-between`}
-                  style={{ minHeight: '180px', aspectRatio: '1.58/1' }}>
+                <div className={`relative bg-gradient-to-br ${cardGradient(card.type, card.status)} p-6 mx-0 w-full flex flex-col justify-between`}
+                  style={{ minHeight: '210px' }}>
 
                   {/* Frozen overlay */}
                   {card.status === 'Blocked' && (
@@ -188,7 +210,7 @@ const CardsPage = () => {
                   <div className="flex items-end justify-between">
                     <div>
                       <p className="text-white/40 text-[9px] uppercase tracking-widest mb-0.5">Card holder</p>
-                      <p className="text-white text-sm font-semibold">{customerName || 'NEXUS CUSTOMER'}</p>
+                      <p className="text-white text-sm font-semibold">{cardOwner}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-white/40 text-[9px] uppercase tracking-widest mb-0.5">Expires</p>
@@ -255,7 +277,7 @@ const CardsPage = () => {
 
         {/* Issue new card panel */}
         {(isCustomer || (!isCustomer && selectedAccountId)) && (
-          <div className="bg-white rounded-xl border border-slate-100 shadow-card p-6 space-y-4 h-fit">
+          <div className="bg-white rounded-xl border border-slate-100 shadow-card p-6 space-y-5 h-fit">
             <h3 className="text-sm font-semibold text-slate-900">
               {isCustomer ? 'Request a new card' : 'Issue card directly'}
             </h3>

@@ -14,6 +14,16 @@ router.get('/cards/customer/:customerId', async (req, res) => {
     }
 });
 
+// 1.5 Get All Cards (Admin)
+router.get('/cards', async (req, res) => {
+    try {
+        const [rows] = await db.execute('SELECT * FROM Cards ORDER BY issue_date DESC');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // 2. Issue New Card
 router.post('/cards/issue', async (req, res) => {
     try {
