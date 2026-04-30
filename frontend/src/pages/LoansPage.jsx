@@ -40,11 +40,20 @@ const LoansPage = () => {
   };
 
   useEffect(() => {
-    if (isCustomer && user?.customerId) {
-      fetchCustomerLoans(user.customerId);
-    } else {
-      axios.get('http://localhost:5000/api/customers').then(r => setCustomers(r.data)).catch(() => {});
-    }
+    const init = async () => {
+      if (isCustomer) {
+        let custId = user?.customerId;
+        if (!custId && user?.email) {
+          const custResp = await axios.get('http://localhost:5000/api/customers');
+          const me = custResp.data.find(c => c.email === user.email);
+          if (me) custId = me.customer_id;
+        }
+        if (custId) fetchCustomerLoans(custId);
+      } else {
+        axios.get('http://localhost:5000/api/customers').then(r => setCustomers(r.data)).catch(() => {});
+      }
+    };
+    init();
   }, [user]);
 
   useEffect(() => {

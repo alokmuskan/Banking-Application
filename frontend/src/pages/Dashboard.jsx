@@ -100,30 +100,38 @@ const Dashboard = () => {
     const load = async () => {
       setLoading(true);
       try {
-        if (isCustomer && user?.customerId) {
-          const cid = user.customerId;
-          const [accsResp, txResp, cardsResp, loansResp, fdsResp] = await Promise.all([
-            axios.get(`http://localhost:5000/api/accounts/customer/${cid}`),
-            axios.get(`http://localhost:5000/api/transactions/customer/${cid}/recent`),
-            axios.get(`http://localhost:5000/api/cards/customer/${cid}`),
-            axios.get(`http://localhost:5000/api/loans/customer/${cid}`),
-            axios.get(`http://localhost:5000/api/fd/${cid}`),
-          ]);
-          setAccounts(accsResp.data);
-          setCustomerBalance(accsResp.data.reduce((sum, a) => sum + parseFloat(a.balance), 0));
-          setRecentTx(txResp.data.slice(0, 5));
-          setCards(cardsResp.data);
-          setLoans(loansResp.data);
-          setFds(fdsResp.data);
-
-          if (accsResp.data.length > 0) {
-            const accId = accsResp.data[0].account_id;
-            const [areaResp, pieResp] = await Promise.all([
-              axios.get(`http://localhost:5000/api/analytics/spending/${accId}`),
-              axios.get(`http://localhost:5000/api/analytics/distribution/${accId}`),
+        if (isCustomer) {
+          let cid = user?.customerId;
+          if (!cid && user?.email) {
+            const custResp = await axios.get('http://localhost:5000/api/customers');
+            const me = custResp.data.find(c => c.email === user.email);
+            if (me) cid = me.customer_id;
+          }
+          
+          if (cid) {
+            const [accsResp, txResp, cardsResp, loansResp, fdsResp] = await Promise.all([
+              axios.get(`http://localhost:5000/api/accounts/customer/${cid}`),
+              axios.get(`http://localhost:5000/api/transactions/customer/${cid}/recent`),
+              axios.get(`http://localhost:5000/api/cards/customer/${cid}`),
+              axios.get(`http://localhost:5000/api/loans/customer/${cid}`),
+              axios.get(`http://localhost:5000/api/fd/${cid}`),
             ]);
-            setChartData(areaResp.data);
-            setPieData(pieResp.data);
+            setAccounts(accsResp.data);
+            setCustomerBalance(accsResp.data.reduce((sum, a) => sum + parseFloat(a.balance), 0));
+            setRecentTx(txResp.data.slice(0, 5));
+            setCards(cardsResp.data);
+            setLoans(loansResp.data);
+            setFds(fdsResp.data);
+
+            if (accsResp.data.length > 0) {
+              const accId = accsResp.data[0].account_id;
+              const [areaResp, pieResp] = await Promise.all([
+                axios.get(`http://localhost:5000/api/analytics/spending/${accId}`),
+                axios.get(`http://localhost:5000/api/analytics/distribution/${accId}`),
+              ]);
+              setChartData(areaResp.data);
+              setPieData(pieResp.data);
+            }
           }
         } else if (isAdmin) {
           const [statsResp, txResp, approvalsResp] = await Promise.all([
